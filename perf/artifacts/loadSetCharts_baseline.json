@@ -1,9 +1,0 @@
-{
-  "time_total": 0.040090,
-  "time_namelookup": 0.000056,
-  "time_connect": 0.000403,
-  "time_appconnect": 0.000000,
-  "time_pretransfer": 0.000449,
-  "time_redirect": 0.000000,
-  "time_starttransfer": 0.040073
-}
