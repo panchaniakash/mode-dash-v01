@@ -1,20 +1,29 @@
 function showSpinner(containerId) {
-    const container = $(`#${containerId}`);
-    if (container.length) {
-        const spinner = `
-            <div class="d-flex justify-content-center align-items-center" style="height: 100%;">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="sr-only">Loading...</span>
-                </div>
-            </div>`;
-        container.html(spinner);
+    const container = document.getElementById(containerId);
+    if (container) {
+        const chartBody = container.querySelector('.card-body');
+        if (chartBody) {
+            const spinner = `
+                <div class="spinner-container d-flex justify-content-center align-items-center" style="height: 100%;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                </div>`;
+            chartBody.innerHTML = spinner;
+        }
     }
 }
 
 function hideSpinner(containerId) {
-    const container = $(`#${containerId}`);
-    if (container.length) {
-        container.find('.spinner-border').parent().remove();
+    const container = document.getElementById(containerId);
+    if (container) {
+        const chartBody = container.querySelector('.card-body');
+        if (chartBody) {
+            const spinnerContainer = chartBody.querySelector('.spinner-container');
+            if (spinnerContainer) {
+                spinnerContainer.remove();
+            }
+        }
     }
 }
 
@@ -4618,9 +4627,13 @@ function setLineChart(userChartId, divId) {
             var newChartJson = replaceLeafKeys(chartJson, newJson)
             console.log(newChartJson);
             document.getElementById(divId).setAttribute('name', 'chart')
-            var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
-            document.querySelector(`#${chartDivId}`).innerHTML = ``
-            var chart = new ApexCharts(document.querySelector(`#${chartDivId}`), newChartJson);
+            const chartBody = document.getElementById(divId).querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
+            chartBody.innerHTML = ``;
+            var chart = new ApexCharts(chartBody, newChartJson);
             chart.render();
             //saveChartJson(userChartId,newChartJson)
 
@@ -4812,9 +4825,13 @@ function setDonutChart(userChartId, divId) {
             var newChartJson = replaceLeafKeys(chartJson, newJson)
             console.log(newChartJson);
             document.getElementById(divId).setAttribute('name', 'chart')
-            var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
-            document.querySelector(`#${chartDivId}`).innerHTML = ``
-            var chart = new ApexCharts(document.querySelector(`#${chartDivId}`), newChartJson);
+            const chartBody = document.getElementById(divId).querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
+            chartBody.innerHTML = ``;
+            var chart = new ApexCharts(chartBody, newChartJson);
             chart.render();
             //saveChartJson(userChartId,newChartJson)
 
@@ -5013,9 +5030,13 @@ function setAreaChart(userChartId, divId) {
             var newChartJson = replaceLeafKeys(chartJson, newJson)
             console.log(newChartJson);
             document.getElementById(divId).setAttribute('name', 'chart')
-            var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
-            document.querySelector(`#${chartDivId}`).innerHTML = ``
-            var chart = new ApexCharts(document.querySelector(`#${chartDivId}`), newChartJson);
+            const chartBody = document.getElementById(divId).querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
+            chartBody.innerHTML = ``;
+            var chart = new ApexCharts(chartBody, newChartJson);
             chart.render();
             //saveChartJson(userChartId,newChartJson)
 
@@ -5198,9 +5219,13 @@ function setPieChart(userChartId, divId) {
             var newChartJson = replaceLeafKeys(chartJson, newJson)
             console.log(newChartJson);
             document.getElementById(divId).setAttribute('name', 'chart')
-            var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
-            document.querySelector(`#${chartDivId}`).innerHTML = ``
-            var chart = new ApexCharts(document.querySelector(`#${chartDivId}`), newChartJson);
+            const chartBody = document.getElementById(divId).querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
+            chartBody.innerHTML = ``;
+            var chart = new ApexCharts(chartBody, newChartJson);
             chart.render();
             //saveChartJson(userChartId,newChartJson)
 
@@ -5361,9 +5386,13 @@ function setHalfRadialChart(userChartId, divId) {
             var newChartJson = replaceLeafKeys(chartJson, newJson)
             console.log(newChartJson);
             document.getElementById(divId).setAttribute('name', 'chart')
-            var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
-            document.querySelector(`#${chartDivId}`).innerHTML = ``
-            var chart = new ApexCharts(document.querySelector(`#${chartDivId}`), newChartJson);
+            const chartBody = document.getElementById(divId).querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
+            chartBody.innerHTML = ``;
+            var chart = new ApexCharts(chartBody, newChartJson);
             chart.render();
             //saveChartJson(userChartId,newChartJson)
 
@@ -5524,9 +5553,13 @@ function setFullRadialChart(userChartId, divId) {
             var newChartJson = replaceLeafKeys(chartJson, newJson)
             console.log(newChartJson);
             document.getElementById(divId).setAttribute('name', 'chart')
-            var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
-            document.querySelector(`#${chartDivId}`).innerHTML = ``
-            var chart = new ApexCharts(document.querySelector(`#${chartDivId}`), newChartJson);
+            const chartBody = document.getElementById(divId).querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
+            chartBody.innerHTML = ``;
+            var chart = new ApexCharts(chartBody, newChartJson);
             chart.render();
 
             //saveChartJson(userChartId,newChartJson)
@@ -5683,10 +5716,14 @@ function setAbsValComp(userChartId, divId) {
             //$(divId).find('h6').remove()
             var color = chartOptionsJson["colors"][0] || `#38c219`
             const parentDiv = document.getElementById(divId);
+            const chartBody = parentDiv.querySelector('.card-body');
+            if (!chartBody) {
+                console.error('Chart body not found for divId:', divId);
+                return reject('Chart body not found');
+            }
 
             // Check if any H6 element exists
             const existingH6 = parentDiv.querySelector('h6');
-
 
             if (chartData[0][`${tableColumns[0]}`] == null) {
                 var html = `<div style="font-size: 2vw;position: absolute;bottom: 10%;left: 50%; transform: translateX(-50%);"><span style="color:${color}">0</span>/0</div>`
@@ -5694,17 +5731,15 @@ function setAbsValComp(userChartId, divId) {
                 var html = `<div style="font-size: 2vw;position: absolute;bottom: 10%;left: 50%; transform: translateX(-50%);"><span style="color:${color}">${chartData[0][`${tableColumns[0]}`]}</span>/${chartData[0][`${tableColumns[1]}`]}</div>`
             }
             if (existingH6) {
-                var chartDivId = document.getElementById(divId).children[2].getAttribute('id')
                 parentDiv.querySelector('h6').innerText = chartOptionsJson["chartTitle"]
             } else {
-                var chartDivId = document.getElementById(divId).children[1].getAttribute('id')
                 var headingElement = $('<h6>').attr('id', `${userChartId}Value`).text(`${chartOptionsJson["chartTitle"]}`);
-                $(`#${chartDivId}`).before(headingElement);
+                $(chartBody).before(headingElement);
                 $(`#${userChartId}Value`).addClass('m-2').css('font-weight', 'bolder');
             }
 
-            $(`#${chartDivId}`).html('')
-            $(`#${chartDivId}`).html(html)
+            $(chartBody).html('')
+            $(chartBody).html(html)
 
             var element = document.getElementById(divId);
             var htmlContent = element.outerHTML + element.innerHTML;
