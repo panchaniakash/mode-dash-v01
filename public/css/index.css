@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;400&display=swap');
+body,text {
+    font-family: 'Poppins', sans-serif !important;
+}
+
+/* .row div {
+    padding-left: 6px;
+    padding-right: unset;
+} */
+
+.select2-container .select2-selection--single {
+    height: 35px;
+    padding-top: 4px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    top: 5px;
+}
+
+.select2-selection__choice {
+    display: flex;
+}
+
+#filterDiv {
+    display: flex;
+    gap: 3rem;
+}
+
+.apexcharts-tooltip.apexcharts-active{
+    padding: 10px;
+    padding-left: 15px;
+}
+.apexcharts-menu-open {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: baseline;
+}
+
+#DASHBOARD1 .card {
+    background-color: #fff !important;
+}
+
+#DASHBOARD1 > div{
+    background-color: #fff !important;
+}
