@@ -1,12 +1,22 @@
-$(document).ajaxStart(function() {
-    // Show the overlay when any AJAX request starts
-    $('#loading-overlay').css('display', 'flex');
-});
+function showSpinner(containerId) {
+    const container = $(`#${containerId}`);
+    if (container.length) {
+        const spinner = `
+            <div class="d-flex justify-content-center align-items-center" style="height: 100%;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+            </div>`;
+        container.html(spinner);
+    }
+}
 
-$(document).ajaxStop(function() {
-    // Hide the overlay when all AJAX requests have completed
-    $('#loading-overlay').hide();
-});
+function hideSpinner(containerId) {
+    const container = $(`#${containerId}`);
+    if (container.length) {
+        container.find('.spinner-border').parent().remove();
+    }
+}
 
 var dashboardName = ''
 
@@ -2162,77 +2172,82 @@ function saveChartJson(userChartId, newChartJson) {
 
 // switch case function to set charts
 function setChart(userChartId, chartName, divId) {
+    showSpinner(divId);
     return new Promise((resolve, reject) => {
         switch (chartName) {
             case 'Bar Chart':
-                setBarChart(userChartId, divId)
+                setBarChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             case 'Column Chart':
-                setColumnChart(userChartId, divId)
+                setColumnChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             case 'Line Chart':
-                setLineChart(userChartId, divId)
+                setLineChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             case 'Donut Chart':
-                setDonutChart(userChartId, divId)
+                setDonutChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Area Chart':
-                setAreaChart(userChartId, divId)
+                setAreaChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Pie Chart':
-                setPieChart(userChartId, divId)
+                setPieChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Half Radial Chart':
-                setHalfRadialChart(userChartId, divId)
+                setHalfRadialChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Full Radial Chart':
-                setFullRadialChart(userChartId, divId)
+                setFullRadialChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Absolute Value Comparison':
-                setAbsValComp(userChartId, divId)
+                setAbsValComp(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Absolute Value':
-                setAbsVal(userChartId, divId)
+                setAbsVal(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'Stacked Column Chart':
-                setColumnChart(userChartId, divId)
+                setColumnChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             case 'Data Trend Chart':
-                setDataTrendChart(userChartId, divId)
+                setDataTrendChart(userChartId, divId).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             default:
+                hideSpinner(divId);
+                resolve();
                 break;
         }
-        resolve();
     });
 }
 
 
 // switch case function to set widget
 function setWidget(userObjectId, widgetName, divId) {
+    showSpinner(divId);
     return new Promise((resolve, reject) => {
         switch (widgetName) {
             case 'PREVIOUS MONTH COMPARISON TABLE':
-                setPrevMonthComp(userObjectId, divId, month, year)
+                setPrevMonthComp(userObjectId, divId, month, year).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             case 'AVG MAX MIN RANGE WIDGET':
-                setAvgMaxMinRangeWidget(userObjectId, divId, month, year)
+                setAvgMaxMinRangeWidget(userObjectId, divId, month, year).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break;
             case 'PERCENTAGE BARS WIDGET':
-                setPercentBarsWidget(userObjectId, divId, month, year)
+                setPercentBarsWidget(userObjectId, divId, month, year).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'INCIDENT DETAILS':
-                setIncidentDetails(userObjectId, divId, month, year)
+                setIncidentDetails(userObjectId, divId, month, year).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                 break
             case 'DAILY DSR STATUS':
-                    setDailyDSRStatus(userObjectId, divId, month, year)
+                    setDailyDSRStatus(userObjectId, divId, month, year).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
                     break
             case 'INCIDENT MAP':
-                setIncidentMap(userObjectId, divId, month, year)
+                setIncidentMap(userObjectId, divId, month, year).finally(() => hideSpinner(divId)).then(resolve).catch(reject);
+                break;
             default:
+                hideSpinner(divId);
+                resolve();
                 break;
         }
-        resolve();
     });
 }
 
