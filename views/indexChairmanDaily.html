@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en" style="overflow-x: hidden; ">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="icon" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    type="image/x-icon">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.10/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css">
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.min.js"></script>
+  <link rel="stylesheet" href="/css/index.css">
+  <script src="https://kit.fontawesome.com/1710e3df77.js" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-size: large;
+    }
+
+    .custom-tabs {
+      position: relative;
+      padding: 1.5vh;
+    }
+
+    .nav-tabs .nav-item {
+      border-radius: 10px;
+    }
+
+    .nav-tabs .nav-link {
+      border-radius: 10px;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .add-tab-button {
+      position: absolute;
+      right: 2.5vw;
+      top: 1.5vh;
+      border: none;
+      border-radius: 10px;
+      background-color: #a9bacc;
+    }
+
+    /* #switch-mode-button {
+      position: absolute;
+      right: 0.5vw;
+      top: 0.5vh;
+      border: none;
+    } */
+
+    .close-tab-button,
+    .edit-tab-button {
+      border: none;
+      background: transparent;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .close-tab-button {
+      margin-left: auto;
+    }
+
+    .edit-tab-button {
+      margin-left: 10px;
+    }
+
+    .curved-border {
+      border-style: groove;
+      border-radius: 20px;
+      /* Adjust the value as needed to control the curve */
+    }
+
+    .nav-link input {
+      border: none;
+      background: transparent;
+      outline: none;
+    }
+
+    .tab-title-container {
+      display: flex;
+      align-items: center;
+    }
+  </style>
+  <style>
+    /* Style for the horizontal bar container */
+    .horizontal-bar {
+      display: flex;
+      height: 5vh;
+      /* Adjust the height as needed */
+      overflow: hidden;
+    }
+
+    /* Style for each colored rectangle */
+    .color-rectangle {
+      flex: 1;
+      height: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+  <style>
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-gap: 10px;
+    }
+
+    .grid-item {
+      width: 10vw;
+      height: 10vh;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .curved-border.active {
+      border-color: #007bff;
+    }
+
+
+    .curved-border {
+      border-radius: 10px;
+      /* You can adjust the border-radius value as needed */
+      border: 1px solid #ccc;
+      /* Optional: Add a border for a more visible effect */
+      overflow: hidden;
+      /* Optional: Hide content overflowing from rounded corners */
+    }
+
+    #chooseFilterColumsButton {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      background-color: rgba(0, 0, 255, 0.5);
+      /* Blue color with 50% transparency */
+      padding: 10px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: none;
+    }
+
+    #chooseFiltersButton {
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      background-color: rgba(0, 0, 255, 0.5);
+      /* Blue color with 50% transparency */
+      padding: 10px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: none;
+    }
+  </style>
+  <style>
+    body {
+      margin: 0;
+      /* Remove default margin */
+      font-family: Arial, sans-serif;
+      /* Optional: Set desired font */
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background-color: #f0f0f0;
+      /* Optional: Add background color */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      /* Optional: Add box shadow */
+      height: 10vh;
+      z-index: 99;
+    }
+
+    #dashboardTitle {
+      /* text-align: center; */
+      font-size: 2rem;
+      margin: 0;
+      /* flex-grow: 1; Title takes remaining space */
+    }
+
+    .dropdown-container {
+      display: flex;
+      align-items: center;
+    }
+
+    select {
+      margin-left: 10px;
+      /* Add space between dropdowns */
+    }
+
+    #toggleSwitch {
+      margin-left: 10px;
+      /* Add space between toggle switch and dropdowns */
+    }
+  </style>
+  <style>
+    /* Style for the switch container */
+    .toggle-switch-container {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    /* Hide default checkbox */
+    .toggle-switch-container input[type="checkbox"] {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    /* Style for the switch itself */
+    .toggle-switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    /* Styling for the slider's thumb */
+    .toggle-switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    /* Style when switch is toggled */
+    input[type="checkbox"]:checked+.toggle-switch-slider {
+      background-color: #2196F3;
+    }
+
+    /* Style when switch is toggled */
+    input[type="checkbox"]:checked+.toggle-switch-slider:before {
+      transform: translateX(26px);
+    }
+  </style>
+
+  <style>
+    .slider {
+      position: fixed;
+      top: 3vh;
+      right: -100%;
+      height: 100vh;
+      width: 23vw;
+      background-color: #fff;
+      box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+      transition: right 0.2s ease;
+      z-index: 999;
+    }
+
+    .slider.open {
+      right: 0;
+    }
+
+    #closeSliderBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #333;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    #editChartFormCard {
+      position: relative;
+      top: 5vh;
+    }
+
+    #chartFilters {
+      position: relative;
+      top: 5vh;
+    }
+
+    #filterSlider {
+      position: fixed;
+      top: 3vh;
+      left: -18vw;
+      /* Initially position off-screen */
+      width: 18vw;
+      height: 100%;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      transition: left 0.3s ease-in-out;
+    }
+
+    #closeFilterSlider {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1;
+      cursor: pointer;
+      background-color: #333;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+  </style>
+  <style>
+    /* Add spacing between elements */
+    .dropdown-container label,
+    .dropdown-container select,
+    .dropdown-container .toggle-switch-container {
+      margin-right: 10px;
+      /* Adjust as needed */
+    }
+  </style>
+  <style>
+    .custom-checkbox label {
+      cursor: pointer;
+    }
+
+    .custom-checkbox input[type="checkbox"] {
+      display: none;
+    }
+
+    .custom-checkbox input[type="checkbox"]:checked+label {
+      color: rgb(145, 255, 0);
+    }
+  </style>
+  <style>
+    .custom-card {
+      margin: 1vw;
+    }
+  </style>
+
+  <style>
+    /* Filter Row Styles */
+    .filter-row {
+      display: flex;
+      justify-content: center;
+
+    }
+
+    /* Dropdown Container */
+    .dropdown-container {
+      margin: 0 10px;
+      position: relative;
+    }
+
+    .dropdown-label {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #555;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    /* Dropdown Styling */
+    .dropdown-select {
+      font-size: 1.3rem;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      outline: none;
+      transition: border-color 0.3s;
+      width: 9vw;
+      background-color: #f9f9f9;
+    }
+
+    .dropdown-select:focus {
+      border-color: #007bff;
+      background-color: #fff;
+    }
+
+    /* Hover Effect */
+    .dropdown-select:hover {
+      border-color: #007bff;
+    }
+  </style>
+
+</head>
+
+<body>
+  <header>
+    <div class="container">
+      <div class="row align-items-center" style="height: 10vh; padding: 0; display: flex;">
+
+        <!-- Title -->
+        <div class="col-12 text-center" style="flex: 1; display: flex; justify-content: center; align-items: center;">
+          <h1 style="    font-size: 2rem;
+          margin: 0; margin-right: 1%; color: #6B2CDD;">DAILY </h1>
+          <h1 id="dashboardTitle" class="dashboard-title" style="color: #6B2CDD;">Your Dashboard Title</h1>
+        </div>
+
+        <!-- Filters and Toggle Button in One Row -->
+        <div class="col-12 filter-row">
+
+          <!-- Vertical Dropdown -->
+          <div class="form-group dropdown-container">
+            <label for="VerticalDashboardFilter" class="dropdown-label">Vertical:</label>
+            <select id="VerticalDashboardFilter" onchange="getBusiness(this), setYearMonth()" class="dropdown-select">
+              <option value="value1">Option 1</option>
+              <option value="value2">Option 2</option>
+              <option value="value3">Option 3</option>
+            </select>
+          </div>
+
+          <!-- Business Dropdown -->
+          <div class="form-group dropdown-container">
+            <label for="BusinessDashboardFilter" class="dropdown-label">Business:</label>
+            <select id="BusinessDashboardFilter" onchange="getSite(this), setYearMonth()" class="dropdown-select">
+              <option value="value1">Option 1</option>
+              <option value="value2">Option 2</option>
+              <option value="value3">Option 3</option>
+            </select>
+          </div>
+
+          <!-- Site Dropdown -->
+          <div class="form-group dropdown-container">
+            <label for="SiteDashboardFilter" class="dropdown-label">Site:</label>
+            <select id="SiteDashboardFilter" onchange="setYearMonth()" class="dropdown-select">
+              <option value="value1">Option 1</option>
+              <option value="value2">Option 2</option>
+              <option value="value3">Option 3</option>
+            </select>
+          </div>
+
+          <!-- Year Dropdown -->
+          <div class="form-group dropdown-container">
+            <label for="yearDashboardFilter" class="dropdown-label">Year:</label>
+            <select id="yearDashboardFilter" onchange="getMonthFromSecAuto(this.value)" class="dropdown-select">
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+            </select>
+          </div>
+
+          <!-- Month Dropdown -->
+          <div class="form-group dropdown-container">
+            <label for="monthDashboardFilter" class="dropdown-label">Month:</label>
+            <select id="monthDashboardFilter" onchange="getDate()" class="dropdown-select">
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+
+          <!-- Date Dropdown -->
+          <div class="form-group dropdown-container">
+            <label for="DateDashboardFilter" class="dropdown-label">Date:</label>
+            <select id="DateDashboardFilter" onchange="setYearMonth()" class="dropdown-select">
+              <option value="value1">Option 1</option>
+              <option value="value2">Option 2</option>
+              <option value="value3">Option 3</option>
+            </select>
+          </div>
+
+          <!-- Toggle Switch -->
+          <div class="form-group toggle-switch-container">
+            <label class="toggle-switch-container" id="switch-mode-button">
+              <input type="checkbox" onchange="changeView()">
+              <span class="toggle-switch-slider"></span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tab-content" id="tabContents" style="margin-left: 1vw;">
+
+  </div>
+
+
+
+  <div id="filterDiv"></div>
+  <button id="chooseFiltersButton" title="Select Filters"><i class="fa-solid fa-filter"></i></button>
+  <button id="chooseFilterColumsButton" title="Choose Filter Columns"><i class="fa-solid fa-list"></i></button>
+  <div id="filterSlider">
+    <button id="closeFilterSlider"><i class="fa-solid fa-xmark"></i></button>
+    <div class="card" id="chartFilters">
+      <div class="card-header">
+        Select Filters
+      </div>
+      <div class="card-body" id="filterList" style="height: 76vh;overflow-x: hidden;">
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="editChartSlider" class="slider">
+    <button id="closeSliderBtn"><i class="fa-solid fa-xmark"></i></button>
+    <!-- Your slider content goes here -->
+    <div class="card" id="editChartFormCard">
+      <div class="card-header">
+        Edit Chart
+      </div>
+      <div class="card-body" id="test" style="height: 76vh; overflow-x: hidden;">
+        <form>
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="pageName">Page Name</label>
+              <input type="text" class="form-control" id="pageName" placeholder="Enter Page Name" disabled>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="chartTitle">Chart Title</label>
+              <input type="text" class="form-control" id="chartTitle" placeholder="Enter Chart Title" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="objectType">Object Type</label>
+              <select class="form-control select2" id="objectType" onchange="toggleChartWidget()">
+                <option value="1">Chart</option>
+                <option value="2">Widget</option>
+                <!-- Add more options as needed -->
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="chartType">Chart Type</label>
+              <select class="form-control select2" id="chartType">
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="pie">Pie Chart</option>
+                <!-- Add more options as needed -->
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" style="display: none;">
+            <div class="form-group col-md-12">
+              <label for="widgetType">Widget Type</label>
+              <select class="form-control select2" id="widgetType">
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="colorSelector">Choose Colors</label>
+              <select class="form-control" id="colorSelector" name="selectedColor"
+                onchange="changeColorDiv(this.value),disableSelect(this.id)">
+                <option value=""></option>
+                <!-- Add more options as needed -->
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="colorSelector">Custom Colors</label>
+              <select class="form-control" id="colorSelect" name="Color" onchange="disableSelect(this.id)">
+                <!-- <option value=""></option> -->
+              </select>
+            </div>
+          </div>
+          <div id="colorContainer"></div>
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <label for="tableDropdown">Table</label>
+              <select class="form-control select2" id="tableDropdown"
+                onchange="getTableColumns(this.value);getTableGroupByColumns(this.value)">
+                <!-- Add options for tables -->
+              </select>
+            </div>
+          </div>
+          <div id="editChartWiseForm">
+          </div>
+
+
+        </form>
+      </div>
+      <div class="card-footer">
+        <div class="form-row">
+          <div class="form-group col-md-12" style="margin-top: 1vh;">
+            <button type="button" class="btn btn-primary" id="submitChartButton">Submit</button>
+            <button type="button" class="btn btn-danger" style="float: right;" id="deleteChartButton">Delete
+              Chart</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="addTabModal" tabindex="-1" role="dialog" aria-labelledby="addTabModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addTabModalLabel">Add New Tab</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <label for="newTabTitle">Tab Title:</label>
+          <input type="text" class="form-control" id="newTabTitle">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="addNewTabFromModal()">Add Tab</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="gridModal" tabindex="-1" role="dialog" aria-labelledby="gridModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Select Grid for <span id="gridModalLabel"></span></h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="grid-container" class="grid-container"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="selectGridButton">Submit</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.10/dist/sweetalert2.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+  <!--<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.54.1/apexcharts.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var closeSliderBtn = document.getElementById('closeSliderBtn');
+      var slider = document.getElementById('editChartSlider');
+
+
+      closeSliderBtn.addEventListener('click', function () {
+        slider.classList.remove('open');
+      });
+
+      $('#closeFilterSlider').click(function () {
+        $('#filterSlider').css('left', '-18vw');
+      });
+    });
+
+
+
+
+  </script>
+  <script>
+    $(document).ready(function () {
+      // Initialize Select2 for the dropdowns
+      $('.select2').select2({
+      });
+    });
+
+    function changeColorDiv(value) {
+      let colors = value.split(',');
+      let colorDiv = '<div class="row" style="height: 10px;">';
+      console.log(colors.length, 'length');
+      colors.forEach(function (color) {
+        colorDiv += '<div class="col" style="background-color:' + color + ';"></div>';
+      });
+      colorDiv += '</div>';
+
+      $('#colorContainer').html(colorDiv);
+    }
+  </script>
+  <script src="/js/indexChairmanDaily.js"></script>
+
+</body>
+
+</html>
