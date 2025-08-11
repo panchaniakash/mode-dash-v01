@@ -12,7 +12,7 @@ var year
 var monthsAbbrev = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 var monthName
 
-getUserLevelFilters()
+getDashboardInitData()
 
 
 var mode = 'edit'
@@ -30,45 +30,23 @@ var uL = `VNAME`
 var uLName = 'VERTICAL'
 
 
-function getVertical() {
+function populateVerticals(data) {
     let verticals = document.getElementById('VerticalDashboardFilter');
-    let bucketId = sessionStorage.getItem('bucketId')
-    const myUrl = new URL(window.location.toLocaleString()).searchParams;
-    var userId = myUrl.get('uid')
-    let newObj = {};
-    newObj['bucketId'] = bucketId
-    newObj["userId"] = userId
-    $.ajax({
-        "url": `/index/getVertical`,
-        "method": "POST",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "data": JSON.stringify(newObj)
-    }).done(function (data) {
-        console.log(data);
-        let html = '<option value="All" selected = "selected">SELECT ALL</option>';
-        vFilter = `VNAME IN (`
-
-        for (var i = 0; i < data.length; i++) {
-            if (i == 0) {
-                vFilter += `'${data[i].VNAME}'`
-            } else {
-                vFilter += `,'${data[i].VNAME}'`
-            }
-            html += `<option value="${data[i].VNAME}">${data[i].VNAME}</option>`;
+    let html = '<option value="All" selected = "selected">SELECT ALL</option>';
+    vFilter = `VNAME IN (`;
+    for (var i = 0; i < data.length; i++) {
+        if (i == 0) {
+            vFilter += `'${data[i].VNAME}'`;
+        } else {
+            vFilter += `,'${data[i].VNAME}'`;
         }
-        vFilter += `)`
-        verticals.innerHTML = html;
-       $('#VerticalDashboardFilter').val('All').trigger('change')
-// $('#VerticalDashboardFilter').val(`${data[i].VNAME}`).trigger('change')
-
-    })
-
+        html += `<option value="${data[i].VNAME}">${data[i].VNAME}</option>`;
+    }
+    vFilter += `)`;
+    verticals.innerHTML = html;
+    $('#VerticalDashboardFilter').val('All').trigger('change');
     var site = document.getElementById('SiteDashboardFilter');
     var business = document.getElementById('BusinessDashboardFilter');
-
     site.innerHTML = `<option value="">Select</option>`;
     business.innerHTML = `<option value="">Select</option>`;
 }
@@ -180,25 +158,14 @@ function getSite(select) {
     
 
 }
-function getYearsFromSecAuto() {
-
-    $.ajax({
-        "url": `/index/getYearsFromSecAuto`,
-        "method": "GET",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-    }).done(function (data) {
-        document.getElementById('yearDashboardFilter').innerHTML = ``
-        var yearOptions = ``
-
-        data.forEach(year => {
-            yearOptions += `<option value="${year.YEAR}">${year.YEAR}</option>`
-        })
-        document.getElementById('yearDashboardFilter').innerHTML = yearOptions
-        getMonthFromSecAuto(`${data[0]?.YEAR}`)
-    })
+function populateYears(data) {
+    document.getElementById('yearDashboardFilter').innerHTML = ``;
+    var yearOptions = ``;
+    data.forEach(year => {
+        yearOptions += `<option value="${year.YEAR}">${year.YEAR}</option>`;
+    });
+    document.getElementById('yearDashboardFilter').innerHTML = yearOptions;
+    getMonthFromSecAuto(`${data[0]?.YEAR}`);
 }
 
 function getMonthFromSecAuto(year) {
@@ -654,53 +621,53 @@ function setYearMonth() {
 
 
 
-function getUserLevelFilters() {
+function getDashboardInitData() {
+    const loader = document.getElementById('loader');
+    loader.style.display = 'flex';
+
     const myUrl = new URL(window.location.toLocaleString()).searchParams;
-    var userId = myUrl.get('uid')
-    var jsonObj = {}
-    jsonObj["userId"] = userId
+    const userId = myUrl.get('uid');
+    const bucketId = sessionStorage.getItem('bucketId');
+
     $.ajax({
-        "url": `/index/getUserLevelFilters`,
-        "method": "POST",
-        "timeout": 0,
-        "headers": {
+        url: `/index/getDashboardInitData`,
+        method: "POST",
+        timeout: 0,
+        headers: {
             "Content-Type": "application/json"
         },
-        "data": JSON.stringify(jsonObj),
+        data: JSON.stringify({ userId, bucketId }),
     }).done(function (data) {
-        console.log(data, "iii");
-        if (data.length > 0) {
-            sessionStorage.setItem('bucketId', parseInt(data[0].ANALYTICS_GROUPS_ID))
-            dashboardName = `${data[0].ANALYTICS_GROUP_LEVEL_NAME} LEVEL DASHBOARD`
-            if (data[0].ANALYTICS_GROUP_LEVEL !== 'ALL') {
-                uL = data[0].ANALYTICS_GROUP_LEVEL
-                uLName = data[0].ANALYTICS_GROUP_LEVEL_NAME
-                userLevelFilterString += ` AND ${data[0].ANALYTICS_GROUP_LEVEL} IN (`
-                userLevelFilterStringForId +=` AND ${data[0].ANALYTICS_GROUP_LEVEL_ID} IN (`
-                for (var i = 0; i < data.length; i++) {
+        if (data.userLevelFilters.length > 0) {
+            const userLevelFilters = data.userLevelFilters;
+            sessionStorage.setItem('bucketId', parseInt(userLevelFilters[0].ANALYTICS_GROUPS_ID));
+            dashboardName = `${userLevelFilters[0].ANALYTICS_GROUP_LEVEL_NAME} LEVEL DASHBOARD`;
+            if (userLevelFilters[0].ANALYTICS_GROUP_LEVEL !== 'ALL') {
+                uL = userLevelFilters[0].ANALYTICS_GROUP_LEVEL;
+                uLName = userLevelFilters[0].ANALYTICS_GROUP_LEVEL_NAME;
+                userLevelFilterString += ` AND ${userLevelFilters[0].ANALYTICS_GROUP_LEVEL} IN (`;
+                userLevelFilterStringForId += ` AND ${userLevelFilters[0].ANALYTICS_GROUP_LEVEL_ID} IN (`;
+                for (var i = 0; i < userLevelFilters.length; i++) {
                     if (i == 0) {
-                        userLevelFilterString += `'${data[i][`${data[0].ANALYTICS_GROUP_LEVEL}`]}'`
-                        userLevelFilterStringForId += `'${data[i][`${data[0].ANALYTICS_GROUP_LEVEL_ID}`]}'`
+                        userLevelFilterString += `'${userLevelFilters[i][`${userLevelFilters[0].ANALYTICS_GROUP_LEVEL}`]}'`;
+                        userLevelFilterStringForId += `'${userLevelFilters[i][`${userLevelFilters[0].ANALYTICS_GROUP_LEVEL_ID}`]}'`;
                     } else {
-                        userLevelFilterString += `,'${data[i][`${data[0].ANALYTICS_GROUP_LEVEL}`]}'`
-                        userLevelFilterStringForId += `,'${data[i][`${data[0].ANALYTICS_GROUP_LEVEL_ID}`]}'`
+                        userLevelFilterString += `,'${userLevelFilters[i][`${userLevelFilters[0].ANALYTICS_GROUP_LEVEL}`]}'`;
+                        userLevelFilterStringForId += `,'${userLevelFilters[i][`${userLevelFilters[0].ANALYTICS_GROUP_LEVEL_ID}`]}'`;
                     }
                 }
-                userLevelFilterString += `)`
-                userLevelFilterStringForId +=`)`
-                console.log(userLevelFilterString);
+                userLevelFilterString += `)`;
+                userLevelFilterStringForId += `)`;
             }
-            // document.getElementById('dashboardTitle').textContent = `${data[0].ANALYTICS_GROUP_LEVEL_NAME} LEVEL DASHBOARD FOR ${data[0].ANALYTICS_GROUP_NAME}`
-            document.getElementById('dashboardTitle').textContent = `${data[0].ANALYTICS_GROUP_LEVEL_NAME} DASHBOARD `
+            document.getElementById('dashboardTitle').textContent = `${userLevelFilters[0].ANALYTICS_GROUP_LEVEL_NAME} DASHBOARD `;
 
-            //loadAllPages()
-            //loadAllGrids()
-            getVertical()
-            getYearsFromSecAuto()
-            //loadChartTypes()
-            //loadAllTables()
-            //loadWidgetTypes()
-            //toggleChartWidget()
+            populateVerticals(data.verticals);
+            populateYears(data.years);
+            populateChartTypes(data.chartTypes);
+            populateAllTables(data.tables);
+            populateWidgetTypes(data.widgetTypes);
+            loadAllGrids(data.grids);
+            loadAllPages(data.pages);
 
         } else {
             Swal.fire({
@@ -710,46 +677,29 @@ function getUserLevelFilters() {
                 showConfirmButton: false,
             });
         }
-
-    })
+    }).always(function() {
+        loader.style.display = 'none';
+    });
 }
 
-function loadChartTypes() {
-    $.ajax({
-        "url": `/index/loadChartTypes`,
-        "method": "GET",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-    }).done(function (data) {
-        document.getElementById('chartType').innerHTML = ``
-        var chartOptions = ``
-        chartOptions += `<option value="0">Select Chart</option>`
-        data.forEach(chart => {
-            chartOptions += `<option value="${chart.CHART_ID}">${chart.CHART_NAME}</option>`
-        })
-        document.getElementById('chartType').innerHTML = chartOptions
-    })
+function populateChartTypes(data) {
+    document.getElementById('chartType').innerHTML = ``;
+    var chartOptions = ``;
+    chartOptions += `<option value="0">Select Chart</option>`;
+    data.forEach(chart => {
+        chartOptions += `<option value="${chart.CHART_ID}">${chart.CHART_NAME}</option>`;
+    });
+    document.getElementById('chartType').innerHTML = chartOptions;
 }
 
-function loadWidgetTypes() {
-    $.ajax({
-        "url": `/index/loadWidgetTypes`,
-        "method": "GET",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-    }).done(function (data) {
-        document.getElementById('widgetType').innerHTML = ``
-        var chartOptions = ``
-        chartOptions += `<option value="0">Select Widget</option>`
-        data.forEach(chart => {
-            chartOptions += `<option value="${chart.WIDGET_ID}">${chart.WIDGET_NAME}</option>`
-        })
-        document.getElementById('widgetType').innerHTML = chartOptions
-    })
+function populateWidgetTypes(data) {
+    document.getElementById('widgetType').innerHTML = ``;
+    var chartOptions = ``;
+    chartOptions += `<option value="0">Select Widget</option>`;
+    data.forEach(chart => {
+        chartOptions += `<option value="${chart.WIDGET_ID}">${chart.WIDGET_NAME}</option>`;
+    });
+    document.getElementById('widgetType').innerHTML = chartOptions;
 }
 
 function toggleChartWidgetForForm(a) {
@@ -847,23 +797,14 @@ function handleSuccessChanges(divId, page) {
 
 
 
-function loadAllTables() {
-    $.ajax({
-        "url": `/index/loadAllTables`,
-        "method": "GET",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-    }).done(function (data) {
-        document.getElementById('tableDropdown').innerHTML = ``
-        var tableOptions = ``
-        tableOptions += `<option value="0">Select Table</option>`
-        data.forEach(table => {
-            tableOptions += `<option value="${table.TABLE_NAME}">${table.USABLE_NAME}</option>`
-        })
-        document.getElementById('tableDropdown').innerHTML = tableOptions
-    })
+function populateAllTables(data) {
+    document.getElementById('tableDropdown').innerHTML = ``;
+    var tableOptions = ``;
+    tableOptions += `<option value="0">Select Table</option>`;
+    data.forEach(table => {
+        tableOptions += `<option value="${table.TABLE_NAME}">${table.USABLE_NAME}</option>`;
+    });
+    document.getElementById('tableDropdown').innerHTML = tableOptions;
 }
 function getTableColumns(table) {
     return new Promise((resolve, reject) => {
@@ -991,116 +932,84 @@ function getGroupByValues(column) {
 
 }
 
-function loadAllGrids() {
-    $.ajax({
-        "url": `/index/loadAllGrids`,
-        "method": "GET",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-    }).done(function (data) {
-        var gridContainer = document.getElementById('grid-container');
-        data.forEach(item => {
-            console.log(item);
-            var radioBtn = document.createElement('input');
-            radioBtn.type = 'radio';
-            radioBtn.name = 'gridRadio'; // Use the same name for all radio buttons to make them exclusive
-            radioBtn.value = item.GRID_ID;
-            radioBtn.id = 'grid' + "-" + item.TILE_COUNT + "-" + item.GRID_ID
-            // radioBtn.style.position = 'absolute';
-            // radioBtn.style.left = '-9999px'; // Position off-screen
+function loadAllGrids(data) {
+    var gridContainer = document.getElementById('grid-container');
+    data.forEach(item => {
+        console.log(item);
+        var radioBtn = document.createElement('input');
+        radioBtn.type = 'radio';
+        radioBtn.name = 'gridRadio'; // Use the same name for all radio buttons to make them exclusive
+        radioBtn.value = item.GRID_ID;
+        radioBtn.id = 'grid' + "-" + item.TILE_COUNT + "-" + item.GRID_ID
+        // radioBtn.style.position = 'absolute';
+        // radioBtn.style.left = '-9999px'; // Position off-screen
 
-            // Create label to wrap both radio button and HTML content
-            var label = document.createElement('label');
-            label.className = 'grid-box';
-            label.setAttribute('for', radioBtn.id); // Set the "for" attribute to associate with the radio button
-            label.appendChild(radioBtn);
+        // Create label to wrap both radio button and HTML content
+        var label = document.createElement('label');
+        label.className = 'grid-box';
+        label.setAttribute('for', radioBtn.id); // Set the "for" attribute to associate with the radio button
+        label.appendChild(radioBtn);
 
-            // Modify the HTML string to include a curved border
-            var html = modifyHtmlString(item.GRID_HTML, '10vh', true);
-            label.innerHTML += html;
+        // Modify the HTML string to include a curved border
+        var html = modifyHtmlString(item.GRID_HTML, '10vh', true);
+        label.innerHTML += html;
 
-            // Append label to the container
-            gridContainer.appendChild(label);
+        // Append label to the container
+        gridContainer.appendChild(label);
 
-        });
     });
 }
 
-function loadAllPages() {
-    var jsonObj = {}
-    jsonObj["bucketId"] = sessionStorage.getItem('bucketId')
-    $.ajax({
-        "url": `/index/loadAllPages`,
-        "method": "POST",
-        "timeout": 0,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "data": JSON.stringify(jsonObj),
-    }).done(function (data) {
-        document.getElementById('myTabs').innerHTML = ``
-        document.getElementById('tabContents').innerHTML = ``
-        var tabHTML = ``
-        var contentHTML = ``
-        console.log(data)
-        var i = 0
-        data.forEach(page => {
-            var pageId = page.PAGE_NAME.replace(/\s/g, '');
-            if (i == 0) {
-                tabHTML += `<li class="nav-item">
-            <a class="nav-link active" id="tab${i + 1}" onclick="resolveLoadPageGrid('${page.PAGE_NAME}')" data-toggle="tab" href="#${pageId}">
-              <div class="tab-title-container">
-                <span class="tab-title">${page.PAGE_NAME}</span>
-                <button class="edit edit-tab-button" name="editModalButton" title="Change Grid" id="${pageId}editButton" onclick="openEditModal('tab${i + 1}', ${page.GRID_ID})"><i class="fa-solid fa-table-cells-large fa-sm"></i></button>
-                <button class="close close-tab-button" name="removeTabButton" onclick="confirmRemoveTab('tab${i + 1}','${pageId}')">&times;</button>
-              </div>
-            </a>
-          </li>`
-                contentHTML += `<div id="${pageId}" name="pageContent" class="tab-pane fade show active">
-          <p>Content for ${page.PAGE_NAME}</p>
-        </div>`
-            } else {
-                tabHTML += `<li class="nav-item">
-            <a class="nav-link" id="tab${i + 1}" onclick="resolveLoadPageGrid('${page.PAGE_NAME}')" data-toggle="tab" href="#${pageId}">
-              <div class="tab-title-container">
-                <span class="tab-title">${page.PAGE_NAME}</span>
-                <button class="edit edit-tab-button" name="editModalButton" id="${pageId}editButton" onclick="openEditModal('tab${i + 1}', ${page.GRID_ID})"><i class="fa-solid fa-table-cells-large fa-sm"></i></button>
-                <button class="close close-tab-button" name="removeTabButton" onclick="confirmRemoveTab('tab${i + 1}','${pageId}')">&times;</button>
-              </div>
-            </a>
-          </li>`
-                contentHTML += `<div id="${pageId}" name="pageContent" class="tab-pane fade">
-          <p>Content for ${page.PAGE_NAME}</p>
-        </div>`
-            }
-            i += 1
+function loadAllPages(data) {
+    document.getElementById('myTabs').innerHTML = ``;
+    document.getElementById('tabContents').innerHTML = ``;
+    var tabHTML = ``;
+    var contentHTML = ``;
+    console.log(data);
+    var i = 0;
+    data.forEach(page => {
+        var pageId = page.PAGE_NAME.replace(/\s/g, '');
+        if (i == 0) {
+            tabHTML += `<li class="nav-item">
+        <a class="nav-link active" id="tab${i + 1}" onclick="resolveLoadPageGrid('${page.PAGE_NAME}')" data-toggle="tab" href="#${pageId}">
+          <div class="tab-title-container">
+            <span class="tab-title">${page.PAGE_NAME}</span>
+            <button class="edit edit-tab-button" name="editModalButton" title="Change Grid" id="${pageId}editButton" onclick="openEditModal('tab${i + 1}', ${page.GRID_ID})"><i class="fa-solid fa-table-cells-large fa-sm"></i></button>
+            <button class="close close-tab-button" name="removeTabButton" onclick="confirmRemoveTab('tab${i + 1}','${pageId}')">&times;</button>
+          </div>
+        </a>
+      </li>`;
+            contentHTML += `<div id="${pageId}" name="pageContent" class="tab-pane fade show active">
+      <p>Content for ${page.PAGE_NAME}</p>
+    </div>`;
+        } else {
+            tabHTML += `<li class="nav-item">
+        <a class="nav-link" id="tab${i + 1}" onclick="resolveLoadPageGrid('${page.PAGE_NAME}')" data-toggle="tab" href="#${pageId}">
+          <div class="tab-title-container">
+            <span class="tab-title">${page.PAGE_NAME}</span>
+            <button class="edit edit-tab-button" name="editModalButton" id="${pageId}editButton" onclick="openEditModal('tab${i + 1}', ${page.GRID_ID})"><i class="fa-solid fa-table-cells-large fa-sm"></i></button>
+            <button class="close close-tab-button" name="removeTabButton" onclick="confirmRemoveTab('tab${i + 1}','${pageId}')">&times;</button>
+          </div>
+        </a>
+      </li>`;
+            contentHTML += `<div id="${pageId}" name="pageContent" class="tab-pane fade">
+      <p>Content for ${page.PAGE_NAME}</p>
+    </div>`;
+        }
+        i += 1;
+    });
+
+    tabHTML += ``;
+    document.getElementById('myTabs').innerHTML = tabHTML;
+
+    resolveLoadPageGrid(data[0].PAGE_NAME)
+        .then(() => {
+            // Now that resolveLoadPageGrid is complete, execute setUserView
+            setUserView();
         })
-
-
-        //     tabHTML += `<button class="btn btn-default add-tab-button" data-toggle="modal" data-target="#addTabModal" id="addPageButton"><i class="fa-solid fa-plus"></i></button>`
-        //     tabHTML +=`<div class="custom-control custom-switch" id="switch-mode-button">
-        //     <input type="checkbox" class="custom-control-input" id="toggleSwitch" onchange="yourCustomFunction()">
-
-        // </div>`
-        tabHTML += ``
-        console.log(tabHTML);
-        document.getElementById('myTabs').innerHTML = tabHTML
-
-
-        //resolveLoadPageGrid(data[0].PAGE_NAME)
-        resolveLoadPageGrid(data[0].PAGE_NAME)
-            .then(() => {
-                // Now that resolveLoadPageGrid is complete, execute setUserView
-                setUserView();
-            })
-            .catch(function (error) {
-                console.error('Error:', error);
-            });
-        //setUserView()
-
-    })
+        .catch(function (error) {
+            console.error('Error:', error);
+        });
 }
 
 function changeView() {

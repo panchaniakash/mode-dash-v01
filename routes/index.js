@@ -8,833 +8,385 @@ var config = {
     password: process.env.DB_PASSWD,
     database: process.env.DB,
     schema: process.env.SCHEMA,
-    trustServerCertificate: true
+    trustServerCertificate: true,
+    pool: {
+        max: 10,
+        min: 0,
+        idleTimeoutMillis: 30000
+    }
 };
 
-router.post("/loadAllPages", function (req, res) {
+const pool = new sql.ConnectionPool(config);
+const poolConnect = pool.connect();
+
+poolConnect.then((pool) => {
+    console.log('Connected to MSSQL');
+}).catch((err) => {
+    console.error('Database Connection Failed! Bad Config: ', err)
+});
+
+router.post("/loadAllPages", async function (req, res) {
     console.log("----DISPLAY loadAllPages API----\n");
     let bucketId = req.body.bucketId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT PAGE_NAME, GRID_ID FROM ${config.schema}.USER_CHARTS_GRID WHERE BUCKETID = ${bucketId} ORDER BY PAGE_NAME`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result1 = await request.query(`SELECT PAGE_NAME, GRID_ID FROM ${config.schema}.USER_CHARTS_GRID WHERE BUCKETID = @bucketId ORDER BY PAGE_NAME`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadAllPages !", err);
+        console.error("catch error found loadAllPages !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/addNewPage", function (req, res) {
+router.post("/addNewPage", async function (req, res) {
     console.log("----DISPLAY addNewPage API----\n");
     let bucketId = req.body.bucketId;
-    let page = req.body.page
+    let page = req.body.page;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT USER_CHART_GRID_ID, BUCKETID, GRID_ID, PAGE_NAME
-            FROM dbo.USER_CHARTS_GRID WHERE PAGE_NAME = '${page}';`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                if (result1.recordset.length == 0) {
-                    var q2 = `INSERT INTO dbo.USER_CHARTS_GRID
-                    (BUCKETID, GRID_ID, PAGE_NAME)
-                    VALUES(${bucketId}, 1, '${page}');
-                    `
-                    request.query(q2, function (err, result2) {
-                        res.json({ status: 200 })
-                    })
-                } else {
-                    res.json({ status: 300 })
-                }
+        const request = pool.request();
+        request.input('page', sql.NVarChar, page);
+        request.input('bucketId', sql.Int, bucketId);
 
-            })
-        })
+        const result1 = await request.query(`SELECT USER_CHART_GRID_ID, BUCKETID, GRID_ID, PAGE_NAME FROM dbo.USER_CHARTS_GRID WHERE PAGE_NAME = @page;`);
+
+        if (result1.recordset.length == 0) {
+            await request.query(`INSERT INTO dbo.USER_CHARTS_GRID (BUCKETID, GRID_ID, PAGE_NAME) VALUES(@bucketId, 1, @page);`);
+            res.json({ status: 200 });
+        } else {
+            res.json({ status: 300 });
+        }
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found addNewPage !", err);
+        console.error("catch error found addNewPage !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
 
-
-router.post("/loadPageGridDaily", function (req, res) {
+router.post("/loadPageGridDaily", async function (req, res) {
     console.log("----DISPLAY loadPageGridDaily API----\n");
     let bucketId = req.body.bucketId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT gm.GRID_HTML, gm.TILE_COUNT FROM ${config.schema}.DASHBOARD_GRID dg
-            JOIN GRID_MASTER gm ON dg.GRID_ID = gm.GRID_ID
-            WHERE dg.BUCKET_ID = ${bucketId} AND DASHBOARD = 'DAILY'`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result1 = await request.query(`SELECT gm.GRID_HTML, gm.TILE_COUNT FROM ${config.schema}.DASHBOARD_GRID dg JOIN GRID_MASTER gm ON dg.GRID_ID = gm.GRID_ID WHERE dg.BUCKET_ID = @bucketId AND DASHBOARD = 'DAILY'`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadPageGrid !", err);
+        console.error("catch error found loadPageGrid !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/loadPageGridMonthly", function (req, res) {
-    console.log("----DISPLAY loadPageGridDaily API----\n");
+router.post("/loadPageGridMonthly", async function (req, res) {
+    console.log("----DISPLAY loadPageGridMonthly API----\n");
     let bucketId = req.body.bucketId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT gm.GRID_HTML, gm.TILE_COUNT FROM ${config.schema}.DASHBOARD_GRID dg
-            JOIN GRID_MASTER gm ON dg.GRID_ID = gm.GRID_ID
-            WHERE dg.BUCKET_ID = ${bucketId} AND DASHBOARD = 'MONTHLY'`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result1 = await request.query(`SELECT gm.GRID_HTML, gm.TILE_COUNT FROM ${config.schema}.DASHBOARD_GRID dg JOIN GRID_MASTER gm ON dg.GRID_ID = gm.GRID_ID WHERE dg.BUCKET_ID = @bucketId AND DASHBOARD = 'MONTHLY'`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadPageGrid !", err);
+        console.error("catch error found loadPageGrid !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/removeTab", function (req, res) {
+router.post("/removeTab", async function (req, res) {
     console.log("----DISPLAY removeTab API----\n");
-    let page = req.body.page
+    let page = req.body.page;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `DELETE FROM dbo.USER_CHARTS_GRID WHERE PAGE_NAME = '${page}';`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-
-                var q2 = `DELETE FROM dbo.USER_CHARTS WHERE PAGE_NAME = '${page}';
-                    `
-                request.query(q2, function (err, result2) {
-                    res.json({ status: 200 })
-                })
-
-
-            })
-        })
+        const request = pool.request();
+        request.input('page', sql.NVarChar, page);
+        await request.query(`DELETE FROM dbo.USER_CHARTS_GRID WHERE PAGE_NAME = @page;`);
+        await request.query(`DELETE FROM dbo.USER_CHARTS WHERE PAGE_NAME = @page;`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found removeTab !", err);
+        console.error("catch error found removeTab !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.get("/loadAllGrids", function (req, res) {
+router.get("/loadAllGrids", async function (req, res) {
     console.log("----DISPLAY loadAllGrids API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT GRID_ID, GRID_HTML, TILE_COUNT FROM ${config.schema}.GRID_MASTER`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        const result1 = await request.query(`SELECT GRID_ID, GRID_HTML, TILE_COUNT FROM ${config.schema}.GRID_MASTER`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadAllGrids !", err);
+        console.error("catch error found loadAllGrids !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getVertical", function (req, res) {
+router.post("/getVertical", async function (req, res) {
     console.log("----DISPLAY getVertical API----\n");
     try {
-        var DATA = req.body;
-        var bucketId = DATA.bucketId;
-        var userId = DATA.userId; // Assuming USERID is part of the incoming request body
-        console.log(bucketId, "jjjjjjjjjjjjjjjjjjjjj");
+        const { bucketId, userId } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result = await request.query(`SELECT ANALYTICS_GROUP_LEVEL_NAME FROM ${config.schema}.[ANALYTICS_GROUPS] WHERE ANALYTICS_GROUP_ID = @bucketId`);
 
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err);
-                throw err;
-            }
-
-            var request = new sql.Request();
-
-            // First, get the ANALYTICS_GROUP_LEVEL_NAME from ANALYTICS_GROUPS based on bucketId
-            var q1 = `
-                SELECT ANALYTICS_GROUP_LEVEL_NAME 
-                FROM ${config.schema}.[ANALYTICS_GROUPS] 
-                WHERE ANALYTICS_GROUP_ID = @bucketId
-            `;
-            request.input('bucketId', sql.Int, bucketId); // Use parameterized queries to avoid SQL injection
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err);
-                    throw err;
-                }
-
-                // Log the fetched ANALYTICS_GROUP_LEVEL_NAME
-                if (result.recordset.length > 0) {
-                    console.log("Analytics Group Level Name:", result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME);
-
-                    if (result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME === "GROUP SECURITY") {
-                        // If ANALYTICS_GROUP_LEVEL_NAME is "CHAIRMAN", execute the original query
-                        var q2 = `SELECT DISTINCT VNAME FROM ${config.schema}.VERTICAL WHERE VSTATUS = 'ACTIVE' ORDER BY VNAME ASC`;
-                        request.query(q2, function (err, result1) {
-                            if (err) {
-                                console.log(err);
-                                throw err;
-                            }
-                            res.json(result1.recordset);
-                        });
-                    } else {
-                        // If it's not "CHAIRMAN", we need to get VID from USERGROUPS based on USERID
-                        var q3 = `
-                            SELECT DISTINCT VID 
-                            FROM ${config.schema}.USERGROUPS 
-                            WHERE USERID = @userId
-                        `;
-                        console.log(q3);
-                        request.input('userId', sql.Int, userId); // Assuming USERID is provided in the request
-                        request.query(q3, function (err, result3) {
-                            if (err) {
-                                console.log(err);
-                                throw err;
-                            }
-
-                            // If VID is found, adjust the query to filter by VID
-                            if (result3.recordset.length > 0) {
-                                var vidArray = result3.recordset.map(row => row.VID);  // Extract VID from result
-                                console.log(vidArray);
-                            
-                                // Convert the array into a comma-separated string
-                                var vidList = vidArray.join(',');
-                            
-                                var q4 = `
-                                    SELECT DISTINCT VNAME 
-                                    FROM ${config.schema}.VERTICAL 
-                                    WHERE VSTATUS = 'ACTIVE' 
-                                    AND VID IN (${vidList})  -- Directly include the comma-separated VID list
-                                    ORDER BY VNAME ASC
-                                `;
-                                console.log(q4);
-                            
-                                request.query(q4, function (err, result4) {
-                                    if (err) {
-                                        console.log(err);
-                                        throw err;
-                                    }
-                                    res.json(result4.recordset);
-                                });
-                            } else {
-                                res.status(404).json({ error: 'No matching VID found in USERGROUPS for the provided USERID' });
-                            }
-                        });
-                    }
+        if (result.recordset.length > 0) {
+            if (result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME === "GROUP SECURITY") {
+                const result1 = await request.query(`SELECT DISTINCT VNAME FROM ${config.schema}.VERTICAL WHERE VSTATUS = 'ACTIVE' ORDER BY VNAME ASC`);
+                res.json(result1.recordset);
+            } else {
+                request.input('userId', sql.Int, userId);
+                const result3 = await request.query(`SELECT DISTINCT VID FROM ${config.schema}.USERGROUPS WHERE USERID = @userId`);
+                if (result3.recordset.length > 0) {
+                    const vidArray = result3.recordset.map(row => row.VID);
+                    const result4 = await request.query(`SELECT DISTINCT VNAME FROM ${config.schema}.VERTICAL WHERE VSTATUS = 'ACTIVE' AND VID IN (${vidArray.join(',')}) ORDER BY VNAME ASC`);
+                    res.json(result4.recordset);
                 } else {
-                    res.status(404).json({ error: 'No analytics group found for the provided bucketId' });
+                    res.status(404).json({ error: 'No matching VID found in USERGROUPS for the provided USERID' });
                 }
-            });
-        });
+            }
+        } else {
+            res.status(404).json({ error: 'No analytics group found for the provided bucketId' });
+        }
     } catch (error) {
+        console.error("catch error found in getVertical!", error);
         res.status(500).json({ error: 'Internal server error' });
-        console.log("catch error found in getVertical!", error);
     }
 });
 
 
-router.post("/getBusiness", function (req, res) {
+router.post("/getBusiness", async (req, res) => {
     console.log("----DISPLAY getBusiness API----\n");
     try {
-        var DATA = req.body;
-        var vertical = DATA.vertical;
-        var bucketId = DATA.bucketId;
-        var userId = DATA.userId; // Assuming USERID is part of the incoming request body
-        console.log(bucketId, "jjjjjjjjjjjjjjjjjjjjj");
+        const { vertical, bucketId, userId } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result = await request.query(`SELECT ANALYTICS_GROUP_LEVEL_NAME FROM ${config.schema}.[ANALYTICS_GROUPS] WHERE ANALYTICS_GROUP_ID = @bucketId`);
 
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err);
-                throw err;
-            }
-
-            var request = new sql.Request();
-
-            // First, get the ANALYTICS_GROUP_LEVEL_NAME from ANALYTICS_GROUPS based on bucketId
-            var q1 = `
-                SELECT ANALYTICS_GROUP_LEVEL_NAME 
-                FROM ${config.schema}.[ANALYTICS_GROUPS] 
-                WHERE ANALYTICS_GROUP_ID = @bucketId
-            `;
-            request.input('bucketId', sql.Int, bucketId); // Use parameterized queries to avoid SQL injection
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err);
-                    throw err;
-                }
-
-                // Log the fetched ANALYTICS_GROUP_LEVEL_NAME
-                if (result.recordset.length > 0) {
-                    console.log("Analytics Group Level Name:", result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME);
-
-                    if (result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME === "GROUP SECURITY") {
-                        // If ANALYTICS_GROUP_LEVEL_NAME is "CHAIRMAN", execute the original query
-                        var q2 = `  SELECT DISTINCT B.BUNAME
-                FROM ${config.schema}.BUSINESS B
-                JOIN ${config.schema}.VERTICAL V ON B.VID = V.VID
-                WHERE V.VNAME = '${vertical}' AND B.BUSTATUS = 'ACTIVE' ORDER BY B.BUNAME ASC`;
-                        request.query(q2, function (err, result1) {
-                            if (err) {
-                                console.log(err);
-                                throw err;
-                            }
-                            res.json(result1.recordset);
-                        });
-                    } else {
-                        // If it's not "CHAIRMAN", we need to get VID from USERGROUPS based on USERID
-                        var q3 = `
-                            SELECT DISTINCT BUID 
-                            FROM ${config.schema}.USERGROUPS 
-                            WHERE USERID = @userId
-                        `;
-                        request.input('userId', sql.Int, userId); // Assuming USERID is provided in the request
-                        request.query(q3, function (err, result3) {
-                            if (err) {
-                                console.log(err);
-                                throw err;
-                            }
-
-                            // If VID is found, adjust the query to filter by VID
-                            if (result3.recordset.length > 0) {
-                                var buidArray = result3.recordset.map(row => row.BUID);  // Extract VID from result
-                             console.log(buidArray);
-
-                            
-                             var buidString = buidArray.join(',');
-                                var q4 = `
-                                SELECT DISTINCT B.BUNAME
-                                FROM ${config.schema}.BUSINESS B
-                                JOIN ${config.schema}.VERTICAL V ON B.VID = V.VID
-                                WHERE V.VNAME = '${vertical}' AND BUID IN (${buidString}) AND B.BUSTATUS = 'ACTIVE' ORDER BY B.BUNAME ASC`;
-                
-                                request.query(q4, function (err, result4) {
-                                    if (err) {
-                                        console.log(err);
-                                        throw err;
-                                    }
-                                    res.json(result4.recordset);
-                                });
-                            } else {
-                                res.status(404).json({ error: 'No matching VID found in USERGROUPS for the provided USERID' });
-                            }
-                        });
-                    }
+        if (result.recordset.length > 0) {
+            if (result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME === "GROUP SECURITY") {
+                request.input('vertical', sql.NVarChar, vertical);
+                const result1 = await request.query(`SELECT DISTINCT B.BUNAME FROM ${config.schema}.BUSINESS B JOIN ${config.schema}.VERTICAL V ON B.VID = V.VID WHERE V.VNAME = @vertical AND B.BUSTATUS = 'ACTIVE' ORDER BY B.BUNAME ASC`);
+                res.json(result1.recordset);
+            } else {
+                request.input('userId', sql.Int, userId);
+                const result3 = await request.query(`SELECT DISTINCT BUID FROM ${config.schema}.USERGROUPS WHERE USERID = @userId`);
+                if (result3.recordset.length > 0) {
+                    const buidArray = result3.recordset.map(row => row.BUID);
+                    request.input('vertical', sql.NVarChar, vertical);
+                    const result4 = await request.query(`SELECT DISTINCT B.BUNAME FROM ${config.schema}.BUSINESS B JOIN ${config.schema}.VERTICAL V ON B.VID = V.VID WHERE V.VNAME = @vertical AND BUID IN (${buidArray.join(',')}) AND B.BUSTATUS = 'ACTIVE' ORDER BY B.BUNAME ASC`);
+                    res.json(result4.recordset);
                 } else {
-                    res.status(404).json({ error: 'No analytics group found for the provided bucketId' });
+                    res.status(404).json({ error: 'No matching BUID found in USERGROUPS for the provided USERID' });
                 }
-            });
-        });
+            }
+        } else {
+            res.status(404).json({ error: 'No analytics group found for the provided bucketId' });
+        }
     } catch (error) {
+        console.error("catch error found in getBusiness!", error);
         res.status(500).json({ error: 'Internal server error' });
-        console.log("catch error found in getVertical!", error);
     }
 });
-router.post("/getSite", function (req, res) {
+router.post("/getSite", async (req, res) => {
     console.log("----DISPLAY getSite API----\n");
     try {
-        var DATA = req.body;
-        var Business = DATA.Business;
-        var bucketId = DATA.bucketId;
-        var userId = DATA.userId; // Assuming USERID is part of the incoming request body
-        console.log(bucketId, "jjjjjjjjjjjjjjjjjjjjj");
+        const { Business, bucketId, userId } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result = await request.query(`SELECT ANALYTICS_GROUP_LEVEL_NAME FROM ${config.schema}.[ANALYTICS_GROUPS] WHERE ANALYTICS_GROUP_ID = @bucketId`);
 
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err);
-                throw err;
-            }
-
-            var request = new sql.Request();
-
-            // First, get the ANALYTICS_GROUP_LEVEL_NAME from ANALYTICS_GROUPS based on bucketId
-            var q1 = `
-                SELECT ANALYTICS_GROUP_LEVEL_NAME 
-                FROM ${config.schema}.[ANALYTICS_GROUPS] 
-                WHERE ANALYTICS_GROUP_ID = @bucketId
-            `;
-            request.input('bucketId', sql.Int, bucketId); // Use parameterized queries to avoid SQL injection
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err);
-                    throw err;
-                }
-
-                // Log the fetched ANALYTICS_GROUP_LEVEL_NAME
-                if (result.recordset.length > 0) {
-                    console.log("Analytics Group Level Name:", result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME);
-
-                    if (result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME === "GROUP SECURITY") {
-                        // If ANALYTICS_GROUP_LEVEL_NAME is "CHAIRMAN", execute the original query
-                        console.log("QUERY RUNNING");
-                        var q2 = `
-                            SELECT DISTINCT s.SINAME
-                            FROM ${config.schema}.SITE s
-                            JOIN ${config.schema}.BUSINESS b ON s.BUID = b.BUID
-                            WHERE b.BUNAME = @Business AND S.SISTATUS = 'ACTIVE' 
-                            ORDER BY S.SINAME ASC
-                        `;
-                        console.log(q2,"GYGYGGG");
-                        request.input('Business', sql.NVarChar, Business);
-                        request.query(q2, function (err, result1) {
-                            if (err) {
-                                console.log(err);
-                                throw err;
-                            }
-                            res.json(result1.recordset);
-                        });
-                    } else {
-                        // If it's not "CHAIRMAN", we need to get SIID from USERGROUPS based on USERID
-                        var q3 = `
-                            SELECT DISTINCT SIID 
-                            FROM ${config.schema}.USERGROUPS 
-                            WHERE USERID = @userId
-                        `;
-                        request.input('userId', sql.Int, userId); // Assuming USERID is provided in the request
-                        request.query(q3, function (err, result3) {
-                            if (err) {
-                                console.log(err);
-                                throw err;
-                            }
-
-                            // If SIID is found, adjust the query to filter by SIID
-                            if (result3.recordset.length > 0) {
-                                var siidArray = result3.recordset.map(row => row.SIID);  // Extract SIID from result
-                                console.log(siidArray, "yftfrrrtyrtruy");
-
-                                // Convert the SIID array to a comma-separated string
-                                var siidString = siidArray.join(',');
-
-                                var q4 = `
-                                    SELECT DISTINCT s.SINAME
-                                    FROM ${config.schema}.SITE s
-                                    JOIN ${config.schema}.BUSINESS b ON s.BUID = b.BUID
-                                    WHERE b.BUNAME = @Business 
-                                    AND s.SIID IN (${siidString}) 
-                                    AND S.SISTATUS = 'ACTIVE' 
-                                    ORDER BY S.SINAME ASC
-                                `;
-
-                                request.input('Business', sql.NVarChar, Business);
-                                // Don't need to bind the `siidArray` as a parameter now, since we're using the `siidString` directly
-                                request.query(q4, function (err, result4) {
-                                    if (err) {
-                                        console.log(err);
-                                        throw err;
-                                    }
-                                    res.json(result4.recordset);
-                                });
-                            } else {
-                                res.status(404).json({ error: 'No matching SIID found in USERGROUPS for the provided USERID' });
-                            }
-                        });
-                    }
+        if (result.recordset.length > 0) {
+            if (result.recordset[0].ANALYTICS_GROUP_LEVEL_NAME === "GROUP SECURITY") {
+                request.input('Business', sql.NVarChar, Business);
+                const result1 = await request.query(`SELECT DISTINCT s.SINAME FROM ${config.schema}.SITE s JOIN ${config.schema}.BUSINESS b ON s.BUID = b.BUID WHERE b.BUNAME = @Business AND S.SISTATUS = 'ACTIVE' ORDER BY S.SINAME ASC`);
+                res.json(result1.recordset);
+            } else {
+                request.input('userId', sql.Int, userId);
+                const result3 = await request.query(`SELECT DISTINCT SIID FROM ${config.schema}.USERGROUPS WHERE USERID = @userId`);
+                if (result3.recordset.length > 0) {
+                    const siidArray = result3.recordset.map(row => row.SIID);
+                    request.input('Business', sql.NVarChar, Business);
+                    const result4 = await request.query(`SELECT DISTINCT s.SINAME FROM ${config.schema}.SITE s JOIN ${config.schema}.BUSINESS b ON s.BUID = b.BUID WHERE b.BUNAME = @Business AND s.SIID IN (${siidArray.join(',')}) AND S.SISTATUS = 'ACTIVE' ORDER BY S.SINAME ASC`);
+                    res.json(result4.recordset);
                 } else {
-                    res.status(404).json({ error: 'No analytics group found for the provided bucketId' });
+                    res.status(404).json({ error: 'No matching SIID found in USERGROUPS for the provided USERID' });
                 }
-            });
-        });
+            }
+        } else {
+            res.status(404).json({ error: 'No analytics group found for the provided bucketId' });
+        }
     } catch (error) {
+        console.error("catch error found in getSite!", error);
         res.status(500).json({ error: 'Internal server error' });
-        console.log("catch error found in getSite!", error);
     }
 });
 
 
 
-router.get("/getYearsFromSecAuto", function (req, res) {
+router.get("/getYearsFromSecAuto", async (req, res) => {
     console.log("----DISPLAY getYearsFromSecAuto API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT DISTINCT YEAR FROM ${config.schema}.OL_DSRSECAUTO ORDER BY YEAR DESC`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        const result1 = await request.query(`SELECT DISTINCT YEAR FROM ${config.schema}.OL_DSRSECAUTO ORDER BY YEAR DESC`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getYearsFromSecAuto !", err);
+        console.error("catch error found getYearsFromSecAuto !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-})
-router.post("/getMonthFromSecAuto", function (req, res) {
+});
+router.post("/getMonthFromSecAuto", async (req, res) => {
     console.log("----DISPLAY getMonthFromSecAuto API----\n");
     try {
-        var year = req.body.year
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT DISTINCT MONTH,MONTHNAME FROM ${config.schema}.OL_DSRSECAUTO WHERE YEAR = '${year}' ORDER BY MONTH DESC`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { year } = req.body;
+        const request = pool.request();
+        request.input('year', sql.NVarChar, year);
+        const result1 = await request.query(`SELECT DISTINCT MONTH,MONTHNAME FROM ${config.schema}.OL_DSRSECAUTO WHERE YEAR = @year ORDER BY MONTH DESC`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getMonthFromSecAuto !", err);
+        console.error("catch error found getMonthFromSecAuto !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/saveGrid", function (req, res) {
+router.post("/saveGrid", async (req, res) => {
     console.log("----DISPLAY saveGrid API----\n");
-    let bucketId = req.body.bucketId;
-    let page = req.body.page
-    let gridId = req.body.gridId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `UPDATE dbo.USER_CHARTS_GRID SET GRID_ID = ${gridId}
-            WHERE PAGE_NAME = '${page}' AND BUCKETID = ${bucketId}`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json({ status: 200 })
-            })
-        })
+        const { bucketId, page, gridId } = req.body;
+        const request = pool.request();
+        request.input('gridId', sql.Int, gridId);
+        request.input('page', sql.NVarChar, page);
+        request.input('bucketId', sql.Int, bucketId);
+        await request.query(`UPDATE dbo.USER_CHARTS_GRID SET GRID_ID = @gridId WHERE PAGE_NAME = @page AND BUCKETID = @bucketId`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found saveGrid !", err);
+        console.error("catch error found saveGrid !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/loadSetCharts", function (req, res) {
+router.post("/loadSetCharts", async (req, res) => {
     console.log("----DISPLAY loadSetCharts API----\n");
-    let bucketId = req.body.bucketId;
-    let page = req.body.page
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT DISTINCT TABLE_NAME FROM dbo.USER_CHARTS uc WHERE uc.BUCKETID = ${bucketId} AND uc.PAGE_NAME = '${page}'`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                var q2 = `SELECT uc.USER_CHART_ID, uc.BUCKETID, cm.CHART_NAME , uc.CHART_ID, uc.CHART_OPTIONS_JSON, uc.CHART_JSON, uc.DATA_QUERY_PREFIX, uc.DATA_QUERY_SUFFIX, uc.TABLE_NAME, uc.TILE_DIV_ID, uc.PAGE_NAME
-                FROM dbo.USER_CHARTS uc
-                JOIN dbo.CHART_MASTER cm ON cm.CHART_ID = uc.CHART_ID 
-                WHERE uc.BUCKETID = ${bucketId} AND uc.PAGE_NAME = '${page}';`
-                request.query(q2, function (err, result2) {
-                    if (result1.recordset.length == 1) {
-                        res.json({ charts: result2.recordset, filters: true })
+        const { bucketId, page } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        request.input('page', sql.NVarChar, page);
 
-                    } else {
-                        res.json({ charts: result2.recordset, filters: false })
-                    }
-                })
+        const result1 = await request.query(`SELECT DISTINCT TABLE_NAME FROM dbo.USER_CHARTS uc WHERE uc.BUCKETID = @bucketId AND uc.PAGE_NAME = @page`);
+        const result2 = await request.query(`SELECT uc.USER_CHART_ID, uc.BUCKETID, cm.CHART_NAME , uc.CHART_ID, uc.CHART_OPTIONS_JSON, uc.CHART_JSON, uc.DATA_QUERY_PREFIX, uc.DATA_QUERY_SUFFIX, uc.TABLE_NAME, uc.TILE_DIV_ID, uc.PAGE_NAME FROM dbo.USER_CHARTS uc JOIN dbo.CHART_MASTER cm ON cm.CHART_ID = uc.CHART_ID WHERE uc.BUCKETID = @bucketId AND uc.PAGE_NAME = @page;`);
 
-
-            })
-        })
+        res.json({
+            charts: result2.recordset,
+            filters: result1.recordset.length === 1
+        });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadSetCharts !", err);
+        console.error("catch error found loadSetCharts !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/loadSetWidgets", function (req, res) {
+router.post("/loadSetWidgets", async (req, res) => {
     console.log("----DISPLAY loadSetWidgets API----\n");
-    let bucketId = req.body.bucketId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            
-                var q2 = `SELECT do.*, dwm.WIDGET_NAME FROM DASHBOARD_OBJECTS do 
-                JOIN DASHBOARD_WIDGET_MASTER dwm ON dwm.WIDGET_ID = do.OBJECT_ID 
-                WHERE do.OBJECT_TYPE = 'Widget' AND do.BUCKET_ID = ${bucketId};`
-                request.query(q2, function (err, result2) {
-                    res.json({ widgets: result2.recordset})
-                })
-            })
+        const { bucketId } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        const result2 = await request.query(`SELECT do.*, dwm.WIDGET_NAME FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dwm ON dwm.WIDGET_ID = do.OBJECT_ID WHERE do.OBJECT_TYPE = 'Widget' AND do.BUCKET_ID = @bucketId;`);
+        res.json({ widgets: result2.recordset });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadSetWidgets !", err);
+        console.error("catch error found loadSetWidgets !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.get("/loadChartTypes", function (req, res) {
+router.get("/loadChartTypes", async (req, res) => {
     console.log("----DISPLAY loadChartTypes API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT CHART_ID, CHART_NAME FROM dbo.CHART_MASTER`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        const result1 = await request.query(`SELECT CHART_ID, CHART_NAME FROM dbo.CHART_MASTER`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadChartTypes !", err);
+        console.error("catch error found loadChartTypes !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.get("/loadWidgetTypes", function (req, res) {
+router.get("/loadWidgetTypes", async (req, res) => {
     console.log("----DISPLAY loadWidgetTypes API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT WIDGET_ID, WIDGET_HTML, WIDGET_CHART_ID, WIDGET_NAME
-            FROM dbo.DASHBOARD_WIDGET_MASTER`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        const result1 = await request.query(`SELECT WIDGET_ID, WIDGET_HTML, WIDGET_CHART_ID, WIDGET_NAME FROM dbo.DASHBOARD_WIDGET_MASTER`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadWidgetTypes !", err);
+        console.error("catch error found loadWidgetTypes !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.get("/loadAllTables", function (req, res) {
+router.get("/loadAllTables", async (req, res) => {
     console.log("----DISPLAY loadAllTables API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT t.name TABLE_NAME, cnm.USABLE_NAME 
-            FROM sys.tables t
-            INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-            JOIN dbo.COLUMN_NAME_MAPPING cnm ON t.name = cnm.ACTUAL_NAME 
-            WHERE t.name LIKE 'OL%'
-            ORDER BY s.name, t.name;`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const request = pool.request();
+        const result1 = await request.query(`SELECT t.name TABLE_NAME, cnm.USABLE_NAME FROM sys.tables t INNER JOIN sys.schemas s ON t.schema_id = s.schema_id JOIN dbo.COLUMN_NAME_MAPPING cnm ON t.name = cnm.ACTUAL_NAME WHERE t.name LIKE 'OL%' ORDER BY s.name, t.name;`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found loadAllTables !", err);
+        console.error("catch error found loadAllTables !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getChartFromId", function (req, res) {
+router.post("/getChartFromId", async (req, res) => {
     console.log("----DISPLAY getChartFromId API----\n");
-    let chartId = req.body.chartId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT CHART_ID, CHART_NAME
-            FROM dbo.CHART_MASTER WHERE CHART_ID = ${chartId};`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { chartId } = req.body;
+        const request = pool.request();
+        request.input('chartId', sql.Int, chartId);
+        const result1 = await request.query(`SELECT CHART_ID, CHART_NAME FROM dbo.CHART_MASTER WHERE CHART_ID = @chartId;`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChartFromId !", err);
+        console.error("catch error found getChartFromId !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/deleteChart", function (req, res) {
+router.post("/deleteChart", async (req, res) => {
     console.log("----DISPLAY deleteChart API----\n");
-    let userChartId = req.body.userObjectId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `DELETE FROM dbo.USER_CHARTS WHERE USER_CHART_ID = ${userChartId}`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json({status:200})
-            })
-        })
+        const { userObjectId } = req.body;
+        const request = pool.request();
+        request.input('userObjectId', sql.Int, userObjectId);
+        await request.query(`DELETE FROM dbo.USER_CHARTS WHERE USER_CHART_ID = @userObjectId`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found deleteChart !", err);
+        console.error("catch error found deleteChart !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/deleteWidget", function (req, res) {
+router.post("/deleteWidget", async (req, res) => {
     console.log("----DISPLAY deleteWidget API----\n");
-    let userChartId = req.body.userObjectId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `DELETE FROM dbo.DASHBOARD_OBJECTS WHERE D_OBJECT_ID = ${userChartId}`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json({status:200})
-            })
-        })
+        const { userObjectId } = req.body;
+        const request = pool.request();
+        request.input('userObjectId', sql.Int, userObjectId);
+        await request.query(`DELETE FROM dbo.DASHBOARD_OBJECTS WHERE D_OBJECT_ID = @userObjectId`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found deleteWidget !", err);
+        console.error("catch error found deleteWidget !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getWidgetFromId", function (req, res) {
+router.post("/getWidgetFromId", async (req, res) => {
     console.log("----DISPLAY getWidgetFromId API----\n");
-    let widgetId = req.body.widgetId;
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT WIDGET_ID, WIDGET_NAME
-            FROM dbo.DASHBOARD_WIDGET_MASTER WHERE WIDGET_ID = ${widgetId};`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { widgetId } = req.body;
+        const request = pool.request();
+        request.input('widgetId', sql.Int, widgetId);
+        const result1 = await request.query(`SELECT WIDGET_ID, WIDGET_NAME FROM dbo.DASHBOARD_WIDGET_MASTER WHERE WIDGET_ID = @widgetId;`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getWidgetFromId !", err);
+        console.error("catch error found getWidgetFromId !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-})
+});
 
 router.post("/getTableColumnsAPI", async function (req, res) {
     console.log("----DISPLAY getTableColumnsAPI API----\n");
@@ -893,446 +445,252 @@ router.post("/getGroupByValuesAPI", async function (req, res) {
     }
 });
 
-router.post("/getChartOptions", function (req, res) {
+router.post("/getChartOptions", async (req, res) => {
     console.log("----DISPLAY getChartOptions API----\n");
-    var userChartId = req.body.userChartId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            //var q1 = `SELECT * FROM dbo.DASHBOARD_OBJECTS WHERE D_OBJECT_ID = ${userChartId}`;
-            var q1 = `SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = ${userChartId}`
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { userChartId } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        const result1 = await request.query(`SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = @userChartId`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChartOptions", err);
+        console.error("catch error found getChartOptions", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getWidgetOptions", function (req, res) {
+router.post("/getWidgetOptions", async (req, res) => {
     console.log("----DISPLAY getWidgetOptions API----\n");
-    var userChartId = req.body.userChartId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT * FROM dbo.DASHBOARD_OBJECTS WHERE D_OBJECT_ID = ${userChartId}`;
-            //var q1 = `SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = ${userChartId}`
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { userChartId } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        const result1 = await request.query(`SELECT * FROM dbo.DASHBOARD_OBJECTS WHERE D_OBJECT_ID = @userChartId`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getWidgetOptions", err);
+        console.error("catch error found getWidgetOptions", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getUserLevelFilters", function (req, res) {
+router.post("/getUserLevelFilters", async (req, res) => {
     console.log("----DISPLAY getUserLevelFilters API----\n");
-    var userId = req.body.userId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT aug.A_UG_ID,aug.ANALYTICS_GROUPS_ID, aug.USERID, ag.ANALYTICS_GROUP_NAME, ag.ANALYTICS_GROUP_LEVEL,ag.ANALYTICS_GROUP_LEVEL_NAME,ag.ANALYTICS_GROUP_LEVEL_ID,V.VID ,B.BUID,S.SIID ,V.VNAME ,B.BUNAME ,S.SINAME, V.VCODE ,B.BUCODE ,S.SICODE 
-            FROM dbo.ANALYTICS_USER_GROUP_MAPPING aug
-            JOIN dbo.ANALYTICS_GROUPS ag on ag.ANALYTICS_GROUP_ID = aug.ANALYTICS_GROUPS_ID
-            JOIN dbo.USERGROUPS u ON U.USERID = AUG.USERID
-            JOIN dbo.VERTICAL v ON V.VID = U.VID 
-            JOIN dbo.BUSINESS b ON B.BUID = U.BUID 
-            JOIN dbo.SITE s ON S.SIID = U.SIID 
-            WHERE aug.USERID = ${userId};`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { userId } = req.body;
+        const request = pool.request();
+        request.input('userId', sql.Int, userId);
+        const result1 = await request.query(`SELECT aug.A_UG_ID,aug.ANALYTICS_GROUPS_ID, aug.USERID, ag.ANALYTICS_GROUP_NAME, ag.ANALYTICS_GROUP_LEVEL,ag.ANALYTICS_GROUP_LEVEL_NAME,ag.ANALYTICS_GROUP_LEVEL_ID,V.VID ,B.BUID,S.SIID ,V.VNAME ,B.BUNAME ,S.SINAME, V.VCODE ,B.BUCODE ,S.SICODE FROM dbo.ANALYTICS_USER_GROUP_MAPPING aug JOIN dbo.ANALYTICS_GROUPS ag on ag.ANALYTICS_GROUP_ID = aug.ANALYTICS_GROUPS_ID JOIN dbo.USERGROUPS u ON U.USERID = AUG.USERID JOIN dbo.VERTICAL v ON V.VID = U.VID JOIN dbo.BUSINESS b ON B.BUID = U.BUID JOIN dbo.SITE s ON S.SIID = U.SIID WHERE aug.USERID = @userId;`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getUserLevelFilters", err);
+        console.error("catch error found getUserLevelFilters", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getUserLevelFiltersMonthly", function (req, res) {
+router.post("/getUserLevelFiltersMonthly", async (req, res) => {
     console.log("----DISPLAY getUserLevelFiltersMonthly API----\n");
-    var userId = req.body.userId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT aug.A_UG_ID,aug.ANALYTICS_GROUPS_ID, aug.USERID, ag.ANALYTICS_GROUP_NAME, ag.ANALYTICS_GROUP_LEVEL,ag.ANALYTICS_GROUP_LEVEL_NAME,ag.ANALYTICS_GROUP_LEVEL_ID,V.VID ,B.BUID,S.SIID ,V.VNAME ,B.BUNAME ,S.SINAME, V.VCODE ,B.BUCODE ,S.SICODE 
-            FROM dbo.ANALYTICS_USER_GROUP_MAPPING_MONTHLY aug
-            JOIN dbo.ANALYTICS_GROUPS ag on ag.ANALYTICS_GROUP_ID = aug.ANALYTICS_GROUPS_ID
-            JOIN dbo.USERGROUPS u ON U.USERID = AUG.USERID
-            JOIN dbo.VERTICAL v ON V.VID = U.VID 
-            JOIN dbo.BUSINESS b ON B.BUID = U.BUID 
-            JOIN dbo.SITE s ON S.SIID = U.SIID 
-            WHERE aug.USERID = ${userId};`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { userId } = req.body;
+        const request = pool.request();
+        request.input('userId', sql.Int, userId);
+        const result1 = await request.query(`SELECT aug.A_UG_ID,aug.ANALYTICS_GROUPS_ID, aug.USERID, ag.ANALYTICS_GROUP_NAME, ag.ANALYTICS_GROUP_LEVEL,ag.ANALYTICS_GROUP_LEVEL_NAME,ag.ANALYTICS_GROUP_LEVEL_ID,V.VID ,B.BUID,S.SIID ,V.VNAME ,B.BUNAME ,S.SINAME, V.VCODE ,B.BUCODE ,S.SICODE FROM dbo.ANALYTICS_USER_GROUP_MAPPING_MONTHLY aug JOIN dbo.ANALYTICS_GROUPS ag on ag.ANALYTICS_GROUP_ID = aug.ANALYTICS_GROUPS_ID JOIN dbo.USERGROUPS u ON U.USERID = AUG.USERID JOIN dbo.VERTICAL v ON V.VID = U.VID JOIN dbo.BUSINESS b ON B.BUID = U.BUID JOIN dbo.SITE s ON S.SIID = U.SIID WHERE aug.USERID = @userId;`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getUserLevelFilters", err);
+        console.error("catch error found getUserLevelFiltersMonthly", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getUserLevel", function (req, res) {
+router.post("/getUserLevel", async (req, res) => {
     console.log("----DISPLAY getUserLevel API----\n");
-    var userId = req.body.userId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT R.RCODE  FROM USERPROFILE u 
-            JOIN [ROLE] r ON U.RID = R.RID 
-            WHERE USERID = ${userId}`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { userId } = req.body;
+        const request = pool.request();
+        request.input('userId', sql.Int, userId);
+        const result1 = await request.query(`SELECT R.RCODE FROM USERPROFILE u JOIN [ROLE] r ON U.RID = R.RID WHERE USERID = @userId`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getUserLevel", err);
+        console.error("catch error found getUserLevel", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/saveLinearChartJsonAPI", function (req, res) {
+router.post("/saveLinearChartJsonAPI", async (req, res) => {
     console.log("----DISPLAY saveLinearChartJsonAPI API----\n");
-    let bucketId = req.body.bucketId;
-    let page = req.body.pageName
-    let userChartId = req.body.userChartId
-    let chartId = req.body.chartId
-    let chartOptionsJsonString = req.body.chartOptionsJson
-    let chartOptionsJson = JSON.parse(chartOptionsJsonString)
-    let tableName = req.body.tableName
-    let divId = req.body.divId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT * FROM dbo.USER_CHARTS uc WHERE uc.USER_CHART_ID = ${userChartId}`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                if (result1.recordset.length > 0) {
-                    var q2 = `UPDATE dbo.USER_CHARTS
-                    SET BUCKETID=${bucketId}, CHART_ID=${chartId}, CHART_OPTIONS_JSON='${chartOptionsJsonString}', TABLE_NAME='${tableName}', TILE_DIV_ID='${divId}', PAGE_NAME='${page}' WHERE USER_CHART_ID = ${userChartId};`
-                } else {
-                    var q2 = `INSERT INTO dbo.USER_CHARTS
-                    (BUCKETID, CHART_ID, CHART_OPTIONS_JSON, TABLE_NAME, TILE_DIV_ID, PAGE_NAME)
-                    VALUES(${bucketId}, ${chartId}, '${chartOptionsJsonString}', '${tableName}', '${divId}', '${page}');`
-                }
-                request.query(q2, function (err, result2) {
-                    if (err) {
-                        console.log(err)
-                        throw err
-                    } var q3 = `SELECT MAX(USER_CHART_ID) USER_CHART_ID FROM dbo.USER_CHARTS;`
-                    request.query(q3, function (err, result3) {
-                        if (userChartId !== 0) {
-                            res.json({ userChartID: userChartId })
-                        } else {
-                            res.json({ userChartID: result3.recordset[0].USER_CHART_ID })
-                        }
-                    })
-                })
-            })
-        })
+        const { bucketId, pageName, userChartId, chartId, chartOptionsJson, tableName, divId } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        const result1 = await request.query(`SELECT * FROM dbo.USER_CHARTS uc WHERE uc.USER_CHART_ID = @userChartId`);
+
+        request.input('bucketId', sql.Int, bucketId);
+        request.input('chartId', sql.Int, chartId);
+        request.input('chartOptionsJson', sql.NVarChar, chartOptionsJson);
+        request.input('tableName', sql.NVarChar, tableName);
+        request.input('divId', sql.NVarChar, divId);
+        request.input('pageName', sql.NVarChar, pageName);
+
+        if (result1.recordset.length > 0) {
+            await request.query(`UPDATE dbo.USER_CHARTS SET BUCKETID=@bucketId, CHART_ID=@chartId, CHART_OPTIONS_JSON=@chartOptionsJson, TABLE_NAME=@tableName, TILE_DIV_ID=@divId, PAGE_NAME=@pageName WHERE USER_CHART_ID = @userChartId;`);
+        } else {
+            await request.query(`INSERT INTO dbo.USER_CHARTS (BUCKETID, CHART_ID, CHART_OPTIONS_JSON, TABLE_NAME, TILE_DIV_ID, PAGE_NAME) VALUES(@bucketId, @chartId, @chartOptionsJson, @tableName, @divId, @pageName);`);
+        }
+
+        if (userChartId !== 0) {
+            res.json({ userChartID: userChartId });
+        } else {
+            const result3 = await request.query(`SELECT MAX(USER_CHART_ID) USER_CHART_ID FROM dbo.USER_CHARTS;`);
+            res.json({ userChartID: result3.recordset[0].USER_CHART_ID });
+        }
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found saveLinearChartJsonAPI !", err);
+        console.error("catch error found saveLinearChartJsonAPI !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/saveObjectJsonAPI", function (req, res) {
-    console.log("----DISPLAY saveLinearChartJsonAPI API----\n");
-    let bucketId = req.body.bucketId;
-    let userObjectId = req.body.userObjectId
-    let objectId = req.body.objectId
-    let objectOptionsJsonString = req.body.objectOptionsJson
-    let objectOptionsJson = JSON.parse(objectOptionsJsonString)
-    let tableName = req.body.tableName
-    let divId = req.body.divId
-    let objectType = req.body.objectType
+router.post("/saveObjectJsonAPI", async (req, res) => {
+    console.log("----DISPLAY saveObjectJsonAPI API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT * FROM dbo.DASHBOARD_OBJECTS do WHERE do.D_OBJECT_ID = ${userObjectId}`;
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                if (result1.recordset.length > 0) {
-                    var q2 = `UPDATE dbo.DASHBOARD_OBJECTS
-                    SET BUCKET_ID=${bucketId}, OBJECT_ID=${objectId}, OBJECT_OPTIONS_JSON='${objectOptionsJsonString}', TABLE_NAME='${tableName}', TILE_DIV_ID='${divId}', OBJECT_TYPE='${objectType}' WHERE D_OBJECT_ID = ${userObjectId};`
-                } else {
-                    var q2 = `INSERT INTO dbo.DASHBOARD_OBJECTS
-                    (BUCKET_ID, OBJECT_ID, OBJECT_OPTIONS_JSON, TABLE_NAME, TILE_DIV_ID, OBJECT_TYPE)
-                    VALUES(${bucketId}, ${objectId}, '${objectOptionsJsonString}', '${tableName}', '${divId}', '${objectType}');`
+        const { bucketId, userObjectId, objectId, objectOptionsJson, tableName, divId, objectType } = req.body;
+        const request = pool.request();
+        request.input('userObjectId', sql.Int, userObjectId);
+        const result1 = await request.query(`SELECT * FROM dbo.DASHBOARD_OBJECTS do WHERE do.D_OBJECT_ID = @userObjectId`);
 
-                }
-                console.log(q2);
-                request.query(q2, function (err, result2) {
-                    if (err) {
-                        console.log(err)
-                        throw err
-                    } var q3 = `SELECT MAX(D_OBJECT_ID) USER_WIDGET_ID FROM dbo.DASHBOARD_OBJECTS;`
-                    request.query(q3, function (err, result3) {
-                        if (userObjectId !== 0) {
-                            res.json({ userObjectId: userObjectId })
-                        } else {
-                            res.json({ userObjectId: result3.recordset[0].USER_WIDGET_ID })
-                        }
-                    })
-                })
-            })
-        })
+        request.input('bucketId', sql.Int, bucketId);
+        request.input('objectId', sql.Int, objectId);
+        request.input('objectOptionsJson', sql.NVarChar, objectOptionsJson);
+        request.input('tableName', sql.NVarChar, tableName);
+        request.input('divId', sql.NVarChar, divId);
+        request.input('objectType', sql.NVarChar, objectType);
+
+        if (result1.recordset.length > 0) {
+            await request.query(`UPDATE dbo.DASHBOARD_OBJECTS SET BUCKET_ID=@bucketId, OBJECT_ID=@objectId, OBJECT_OPTIONS_JSON=@objectOptionsJson, TABLE_NAME=@tableName, TILE_DIV_ID=@divId, OBJECT_TYPE=@objectType WHERE D_OBJECT_ID = @userObjectId;`);
+        } else {
+            await request.query(`INSERT INTO dbo.DASHBOARD_OBJECTS (BUCKET_ID, OBJECT_ID, OBJECT_OPTIONS_JSON, TABLE_NAME, TILE_DIV_ID, OBJECT_TYPE) VALUES(@bucketId, @objectId, @objectOptionsJson, @tableName, @divId, @objectType);`);
+        }
+
+        if (userObjectId !== 0) {
+            res.json({ userObjectId: userObjectId });
+        } else {
+            const result3 = await request.query(`SELECT MAX(D_OBJECT_ID) USER_WIDGET_ID FROM dbo.DASHBOARD_OBJECTS;`);
+            res.json({ userObjectId: result3.recordset[0].USER_WIDGET_ID });
+        }
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found saveLinearChartJsonAPI !", err);
+        console.error("catch error found saveObjectJsonAPI !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/createDataForCharty", function (req, res) {
+router.post("/createDataForCharty", async (req, res) => {
     console.log("----DISPLAY createDataForCharty API----\n");
-    var userChartId = req.body.userChartId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
+        const { userChartId } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        const result1 = await request.query(`SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = @userChartId`);
+
+        const chartOptionsJson = JSON.parse(result1.recordset[0].CHART_OPTIONS_JSON);
+        const tableName = result1.recordset[0].TABLE_NAME;
+        let dataQuery = `SELECT `;
+        if (typeof chartOptionsJson["tableColumns"] === 'string') {
+            dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"]}) "${chartOptionsJson["tableColumnsNames"]}", `;
+        } else {
+            for (var i = 0; i < chartOptionsJson["tableColumns"].length; i++) {
+                dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"][i]}) "${chartOptionsJson["tableColumnsNames"][i]}", `;
             }
-            var request = new sql.Request()
-            var q1 = `SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = ${userChartId}`
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                var chartOptionsJson = JSON.parse(result1.recordset[0].CHART_OPTIONS_JSON)
-                var tableName = result1.recordset[0].TABLE_NAME
-                var dataQuery = `SELECT `
-                if (typeof chartOptionsJson["tableColumns"] === 'string') {
-                    dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"]}) "${chartOptionsJson["tableColumnsNames"]}", `
-                } else {
-                    for (var i = 0; i < chartOptionsJson["tableColumns"].length; i++) {
-                        dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"][i]}) "${chartOptionsJson["tableColumnsNames"][i]}", `
-                    }
-                }
-                dataQuery += `${chartOptionsJson["groupByColumn"]} FROM dbo.${tableName} `
-                if (chartOptionsJson["groupByValues"].length > 0) {
-                    var gbValues = `(`
-                    for (var i = 0; i < chartOptionsJson["groupByValues"].length; i++) {
-                        if (i == 0) {
-                            gbValues += `'${chartOptionsJson["groupByValues"][i]}'`
-                        } else {
-                            gbValues += `,'${chartOptionsJson["groupByValues"][i]}'`
-                        }
-                    }
-                    gbValues += `)`
-                    dataQuery += `WHERE ${chartOptionsJson["groupByColumn"]} IN ${gbValues} `
-                } else {
-                    dataQuery += `WHERE ${chartOptionsJson["groupByColumn"]} LIKE '%%' `
-                }
-                var prefixQuery = dataQuery.replace(/'/g, "''")
-                var suffixQuery = `GROUP BY ${chartOptionsJson["groupByColumn"]} ORDER BY ${chartOptionsJson["groupByColumn"]}`
-                var suffixQuery1 = suffixQuery.replace(/'/g, "''")
-                dataQuery += suffixQuery
-                var q2 = `UPDATE dbo.USER_CHARTS SET DATA_QUERY_PREFIX='${prefixQuery}', DATA_QUERY_SUFFIX='${suffixQuery1}' WHERE USER_CHART_ID = ${userChartId}`
-                console.log(q2);
-                request.query(q2, function (err, result2) {
-                    if (err) {
-                        console.log(err)
-                        throw err
-                    }
-                    res.json({ status: 200 })
-                })
+        }
+        dataQuery += `${chartOptionsJson["groupByColumn"]} FROM dbo.${tableName} `;
+        if (chartOptionsJson["groupByValues"].length > 0) {
+            const gbValues = chartOptionsJson["groupByValues"].map(v => `'${v}'`).join(',');
+            dataQuery += `WHERE ${chartOptionsJson["groupByColumn"]} IN (${gbValues}) `;
+        } else {
+            dataQuery += `WHERE ${chartOptionsJson["groupByColumn"]} LIKE '%%' `;
+        }
+        const prefixQuery = dataQuery.replace(/'/g, "''");
+        const suffixQuery = `GROUP BY ${chartOptionsJson["groupByColumn"]} ORDER BY ${chartOptionsJson["groupByColumn"]}`;
+        const suffixQuery1 = suffixQuery.replace(/'/g, "''");
 
-            })
-        })
+        request.input('prefixQuery', sql.NVarChar, prefixQuery);
+        request.input('suffixQuery1', sql.NVarChar, suffixQuery1);
+        await request.query(`UPDATE dbo.USER_CHARTS SET DATA_QUERY_PREFIX=@prefixQuery, DATA_QUERY_SUFFIX=@suffixQuery1 WHERE USER_CHART_ID = @userChartId`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found createDataForCharty", err);
+        console.error("catch error found createDataForCharty", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/createDataForChartDataTrend", function (req, res) {
+router.post("/createDataForChartDataTrend", async (req, res) => {
     console.log("----DISPLAY createDataForChartDataTrend API----\n");
-    var userChartId = req.body.userChartId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = ${userChartId}`
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                var chartOptionsJson = JSON.parse(result1.recordset[0].CHART_OPTIONS_JSON)
-                var data = chartOptionsJson["data"]
-                var groupBy = chartOptionsJson["groupByColumn"]
-                if(groupBy === 'VNAME'){
-                    var c = `V.VNAME`
-                }else if(groupBy === 'BUNAME'){
-                    var c = 'B.BUNAME'
-                }else if(groupBy === 'SINAME'){
-                    var c = 'S.SINAME'
-                }
-                var dataQuery = `SELECT  COUNT(*) COUNT,${c}, I.DSRSTATUS FROM DSRSTATUS I
-                JOIN 
-    VERTICAL V ON V.VID = I.VID
-JOIN 
-    BUSINESS B ON B.BUID = I.BUID
-                JOIN 
-                    SITE S ON S.SIID = I.SIID WHERE '1' = '1' `
-                
-                var prefixQuery = dataQuery.replace(/'/g, "''")
-                var suffixQuery = `GROUP BY ${c},I.DSRSTATUS ORDER BY ${c}`
-                var suffixQuery1 = suffixQuery.replace(/'/g, "''")
-                dataQuery += suffixQuery
-                var q2 = `UPDATE dbo.USER_CHARTS SET DATA_QUERY_PREFIX='${prefixQuery}', DATA_QUERY_SUFFIX='${suffixQuery1}' WHERE USER_CHART_ID = ${userChartId}`
-                console.log(q2);
-                request.query(q2, function (err, result2) {
-                    if (err) {
-                        console.log(err)
-                        throw err
-                    }
-                    res.json({ status: 200 })
-                })
+        const { userChartId } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        const result1 = await request.query(`SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = @userChartId`);
 
-            })
-        })
+        const chartOptionsJson = JSON.parse(result1.recordset[0].CHART_OPTIONS_JSON);
+        const groupBy = chartOptionsJson["groupByColumn"];
+        let c = '';
+        if (groupBy === 'VNAME') {
+            c = `V.VNAME`;
+        } else if (groupBy === 'BUNAME') {
+            c = 'B.BUNAME';
+        } else if (groupBy === 'SINAME') {
+            c = 'S.SINAME';
+        }
+        const dataQuery = `SELECT COUNT(*) COUNT,${c}, I.DSRSTATUS FROM DSRSTATUS I JOIN VERTICAL V ON V.VID = I.VID JOIN BUSINESS B ON B.BUID = I.BUID JOIN SITE S ON S.SIID = I.SIID WHERE '1' = '1' `;
+        const prefixQuery = dataQuery.replace(/'/g, "''");
+        const suffixQuery = `GROUP BY ${c},I.DSRSTATUS ORDER BY ${c}`;
+        const suffixQuery1 = suffixQuery.replace(/'/g, "''");
+
+        request.input('prefixQuery', sql.NVarChar, prefixQuery);
+        request.input('suffixQuery1', sql.NVarChar, suffixQuery1);
+        await request.query(`UPDATE dbo.USER_CHARTS SET DATA_QUERY_PREFIX=@prefixQuery, DATA_QUERY_SUFFIX=@suffixQuery1 WHERE USER_CHART_ID = @userChartId`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found createDataForChartDataTrend", err);
+        console.error("catch error found createDataForChartDataTrend", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-})
-
+});
 
 
-router.post("/createDataForPercentChart", function (req, res) {
+
+router.post("/createDataForPercentChart", async (req, res) => {
     console.log("----DISPLAY createDataForPercentChart API----\n");
-    var userChartId = req.body.userChartId
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = ${userChartId}`
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                var chartOptionsJson = JSON.parse(result1.recordset[0].CHART_OPTIONS_JSON)
-                var tableName = result1.recordset[0].TABLE_NAME
-                var dataQuery = `SELECT `
-                if (typeof chartOptionsJson["tableColumns"] === 'string') {
-                    dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"]}) "${chartOptionsJson["tableColumnsNames"]}" `
+        const { userChartId } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        const result1 = await request.query(`SELECT * FROM dbo.USER_CHARTS WHERE USER_CHART_ID = @userChartId`);
+
+        const chartOptionsJson = JSON.parse(result1.recordset[0].CHART_OPTIONS_JSON);
+        const tableName = result1.recordset[0].TABLE_NAME;
+        let dataQuery = `SELECT `;
+        if (typeof chartOptionsJson["tableColumns"] === 'string') {
+            dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"]}) "${chartOptionsJson["tableColumnsNames"]}" `;
+        } else {
+            for (var i = 0; i < chartOptionsJson["tableColumns"].length; i++) {
+                if (i == 0) {
+                    dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"][i]}) "${chartOptionsJson["tableColumnsNames"][i]}", `;
                 } else {
-                    for (var i = 0; i < chartOptionsJson["tableColumns"].length; i++) {
-                        if (i == 0) {
-                            dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"][i]}) "${chartOptionsJson["tableColumnsNames"][i]}", `
-                        } else {
-                            dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"][i]}) "${chartOptionsJson["tableColumnsNames"][i]}" `
-                        }
-                    }
+                    dataQuery += `${chartOptionsJson["aggregation"]}(${chartOptionsJson["tableColumns"][i]}) "${chartOptionsJson["tableColumnsNames"][i]}" `;
                 }
-                dataQuery += `FROM dbo.${tableName} WHERE '1' = '1' `
-                var prefixQuery = dataQuery.replace(/'/g, "''")
-                var suffixQuery = ``
-                var suffixQuery1 = suffixQuery.replace(/'/g, "''")
-                dataQuery += suffixQuery
-                var q2 = `UPDATE dbo.USER_CHARTS SET DATA_QUERY_PREFIX='${prefixQuery}', DATA_QUERY_SUFFIX='${suffixQuery1}' WHERE USER_CHART_ID = ${userChartId}`
-                console.log(q2);
-                request.query(q2, function (err, result2) {
-                    if (err) {
-                        console.log(err)
-                        throw err
-                    }
-                    res.json({ status: 200 })
-                })
+            }
+        }
+        dataQuery += `FROM dbo.${tableName} WHERE '1' = '1' `;
+        const prefixQuery = dataQuery.replace(/'/g, "''");
+        const suffixQuery = ``;
+        const suffixQuery1 = suffixQuery.replace(/'/g, "''");
 
-            })
-        })
+        request.input('prefixQuery', sql.NVarChar, prefixQuery);
+        request.input('suffixQuery1', sql.NVarChar, suffixQuery1);
+        await request.query(`UPDATE dbo.USER_CHARTS SET DATA_QUERY_PREFIX=@prefixQuery, DATA_QUERY_SUFFIX=@suffixQuery1 WHERE USER_CHART_ID = @userChartId`);
+        res.json({ status: 200 });
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found createDataForPercentChart", err);
+        console.error("catch error found createDataForPercentChart", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-})
+});
 
 router.post("/getLinearChartDataAPI", async function (req, res) {
     console.log("----DISPLAY getLinearChartDataAPI API----\n");
@@ -1430,561 +788,233 @@ router.post("/getPercentChartDataAPI", async function (req, res) {
     }
 });
 
-router.post("/saveChartJsonAPI", function (req, res) {
+router.post("/saveChartJsonAPI", async (req, res) => {
     console.log("----DISPLAY saveChartJsonAPI API----\n");
-    let userChartID = req.body.userChartId;
-    let chartJson = req.body.chartJson
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `UPDATE dbo.USER_CHARTS SET CHART_JSON = '${chartJson}' WHERE USER_CHART_ID = ${userChartID}`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { userChartId, chartJson } = req.body;
+        const request = pool.request();
+        request.input('userChartId', sql.Int, userChartId);
+        request.input('chartJson', sql.NVarChar, chartJson);
+        const result1 = await request.query(`UPDATE dbo.USER_CHARTS SET CHART_JSON = @chartJson WHERE USER_CHART_ID = @userChartId`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found saveChartJsonAPI", err);
+        console.error("catch error found saveChartJsonAPI", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
 
-
-router.post("/getFilterColumnsAPI", function (req, res) {
+router.post("/getFilterColumnsAPI", async (req, res) => {
     console.log("----DISPLAY getFilterColumnsAPI API----\n");
-    let bucketId = req.body.bucketId;
-    let page = req.body.page
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT DISTINCT TABLE_NAME FROM dbo.USER_CHARTS WHERE BUCKETID = ${bucketId} AND PAGE_NAME = '${page}'`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                if (result1.recordset.length > 1) {
-                    res.json({ filters: false, columnList: [] })
-                } else {
-                    var q2 = `SELECT i.COLUMN_NAME,cnm.USABLE_NAME , i.DATA_TYPE
-                    FROM INFORMATION_SCHEMA.COLUMNS i
-                    JOIN dbo.COLUMN_NAME_MAPPING cnm ON i.COLUMN_NAME = cnm.ACTUAL_NAME 
-                    WHERE i.TABLE_NAME = '${result1.recordset[0].TABLE_NAME}'
-                    AND (i.COLUMN_NAME NOT LIKE '%ID' AND i.COLUMN_NAME NOT LIKE '%MONTH%' AND i.COLUMN_NAME NOT LIKE '%IDS' AND i.COLUMN_NAME NOT LIKE '%YEAR%' AND i.COLUMN_NAME NOT LIKE '%QUARTER%' AND i.COLUMN_NAME NOT LIKE '%DATE%' AND NOT i.DATA_TYPE = 'INT') ORDER BY cnm.USABLE_NAME;`
-                    request.query(q2, function (err, result2) {
-                        if (err) {
-                            console.log(err)
-                            throw err
-                        }
-                        res.json({ filters: true, columnList: result2.recordset, table: result1.recordset[0].TABLE_NAME })
-                    })
-                }
-            })
-        })
+        const { bucketId, page } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        request.input('page', sql.NVarChar, page);
+        const result1 = await request.query(`SELECT DISTINCT TABLE_NAME FROM dbo.USER_CHARTS WHERE BUCKETID = @bucketId AND PAGE_NAME = @page`);
+
+        if (result1.recordset.length > 1) {
+            res.json({ filters: false, columnList: [] });
+        } else {
+            request.input('tableName', sql.NVarChar, result1.recordset[0].TABLE_NAME);
+            const result2 = await request.query(`SELECT i.COLUMN_NAME,cnm.USABLE_NAME , i.DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS i JOIN dbo.COLUMN_NAME_MAPPING cnm ON i.COLUMN_NAME = cnm.ACTUAL_NAME WHERE i.TABLE_NAME = @tableName AND (i.COLUMN_NAME NOT LIKE '%ID' AND i.COLUMN_NAME NOT LIKE '%MONTH%' AND i.COLUMN_NAME NOT LIKE '%IDS' AND i.COLUMN_NAME NOT LIKE '%YEAR%' AND i.COLUMN_NAME NOT LIKE '%QUARTER%' AND i.COLUMN_NAME NOT LIKE '%DATE%' AND NOT i.DATA_TYPE = 'INT') ORDER BY cnm.USABLE_NAME;`);
+            res.json({ filters: true, columnList: result2.recordset, table: result1.recordset[0].TABLE_NAME });
+        }
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getFilterColumnsAPI", err);
+        console.error("catch error found getFilterColumnsAPI", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getChartFiltersAPI", function (req, res) {
+router.post("/getChartFiltersAPI", async (req, res) => {
     console.log("----DISPLAY getChartFiltersAPI API----\n");
-    let page = req.body.page
-    let bucketId = req.body.bucketId
-    let columnArray = req.body.columnArray
-    let columnArrayNames = req.body.columnArrayName
-    let filterString = req.body.filterString
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
+        let { page, bucketId, columnArray, filterString } = req.body;
+        const request = pool.request();
+        request.input('bucketId', sql.Int, bucketId);
+        request.input('page', sql.NVarChar, page);
+        const result1 = await request.query(`SELECT DISTINCT TABLE_NAME FROM dbo.USER_CHARTS WHERE BUCKETID = @bucketId AND PAGE_NAME = @page`);
+
+        if (filterString.length > 0) {
+            filterString = "WHERE " + filterString.replace('AND', '');
+        }
+
+        let q2 = `SELECT DISTINCT YEAR AS VALUE, 'YEAR' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `;
+        q2 += `UNION SELECT DISTINCT QUARTER AS VALUE, 'QUARTER' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `;
+        q2 += `UNION SELECT DISTINCT MONTHNAME AS VALUE, 'MONTHNAME' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `;
+        if (result1.recordset[0].TABLE_NAME === 'OL_INCIDENTS') {
+            q2 += `UNION SELECT DISTINCT OCCUREDDATE AS VALUE, 'OCCUREDDATE' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `;
+        } else {
+            q2 += `UNION SELECT DISTINCT DSRDATE AS VALUE, 'DSRDATE' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `;
+        }
+
+        if (result1.recordset.length <= 1) {
+            for (let i = 0; i < columnArray.length; i++) {
+                q2 += `UNION SELECT DISTINCT ${columnArray[i]} AS VALUE, '${columnArray[i]}' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `;
             }
-            var request = new sql.Request()
-            var q1 = `SELECT DISTINCT TABLE_NAME FROM dbo.USER_CHARTS WHERE BUCKETID = ${bucketId} AND PAGE_NAME = '${page}'`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                if (result1.recordset.length > 1) {
-                    if (filterString.length > 0) {
-                        filterString = "WHERE " + filterString.replace('AND', '');
-                    }
-                    var q2 = `SELECT DISTINCT YEAR AS VALUE, 'YEAR' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    q2 += `UNION SELECT DISTINCT QUARTER AS VALUE, 'QUARTER' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    q2 += `UNION SELECT DISTINCT MONTHNAME AS VALUE, 'MONTHNAME' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    if (result1.recordset[0].TABLE_NAME === 'OL_INCIDENTS') {
-                        q2 += `UNION SELECT DISTINCT OCCUREDDATE AS VALUE, 'OCCUREDDATE' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    } else {
-                        q2 += `UNION SELECT DISTINCT DSRDATE AS VALUE, 'DSRDATE' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    }
-                    console.log(q2 , "gfffftftftgfvtfgftuftyftydftydtydfty");
-                    request.query(q2, function (err, result2) {
-                        if (err) {
-                            console.log(err)
-                            throw err
-                        } res.json({ valueList: result2.recordset, table: result1.recordset[0].TABLE_NAME })
-                    })
-                } else {
-                    if (filterString.length > 0) {
-                        filterString = "WHERE " + filterString.replace('AND', '');
-                    }
-                    var q2 = `SELECT DISTINCT YEAR AS VALUE, 'YEAR' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    q2 += `UNION SELECT DISTINCT QUARTER AS VALUE, 'QUARTER' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    q2 += `UNION SELECT DISTINCT MONTHNAME AS VALUE, 'MONTHNAME' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    if (result1.recordset[0].TABLE_NAME === 'OL_INCIDENTS') {
-                        q2 += `UNION SELECT DISTINCT OCCUREDDATE AS VALUE, 'OCCUREDDATE' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    } else {
-                        q2 += `UNION SELECT DISTINCT DSRDATE AS VALUE, 'DSRDATE' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    }
-                    for (let i = 0; i < columnArray.length; i++) {
-                        q2 += `UNION SELECT DISTINCT  ${columnArray[i]} AS VALUE, '${columnArray[i]}' AS COLUMN_NAME FROM dbo.${result1.recordset[0].TABLE_NAME} ${filterString} `
-                    }
-                    console.log(q2);
-                    request.query(q2, function (err, result2) {
-                        if (err) {
-                            console.log(err)
-                            throw err
-                        } res.json({ valueList: result2.recordset, table: result1.recordset[0].TABLE_NAME })
-                    })
-                }
-            })
-        })
+        }
+
+        const result2 = await request.query(q2);
+        res.json({ valueList: result2.recordset, table: result1.recordset[0].TABLE_NAME });
+
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChartFiltersAPI", err);
+        console.error("catch error found getChartFiltersAPI", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
+router.post('/getPrevMonthDataAPI', async (req, res) => {
+    console.log("----DISPLAY getPrevMonthDataAPI API----\n");
+    try {
+        let { month, year, userWidgetId, filterString } = req.body;
+        month = month.toString();
+        year = year.toString();
+        let lmonth, lyear;
 
-router.post('/getPrevMonthDataAPI', function (req, res) {
-    console.log("----DISPLAY getDataforSiteTable API----\n")
-
-    var month = req.body.month.toString()
-    var year = req.body.year.toString()
-    var userWidgetId = req.body.userWidgetId;
-    var filterString = req.body.filterString;
-    var lmonth;
-    var lyear;
-
-    if (month == '1') {
-        lmonth = '12'
-        lyear = (Number(year) - 1).toString()
-    }
-    else {
-        lmonth = (Number(month) - 1).toString()
-        lyear = year
-    }
-    console.log(month, year, lmonth, lyear)
-
-    sql.connect(config, function (err) {
-        try {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-
-            var widgetQuery = `SELECT do.*,dw.WIDGET_HTML  FROM DASHBOARD_OBJECTS do
-            JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = ${userWidgetId}`
-            console.log(widgetQuery);
-            request.query(widgetQuery, function(err,widgetResult){
-                var objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON)
-                var tableColumn = objectOptionsJson["tableColumns"]
-                var tableColumnName = objectOptionsJson["tableColumnsNames"]
-                var table = objectOptionsJson["table"]
-                var groupByColumn = objectOptionsJson["groupByColumn"]
-                var groupByColumnName = objectOptionsJson["groupByColumnName"]
-                var aggregation = objectOptionsJson["aggregation"]
-
-
-                var q1 = `SELECT TOP 5 ${aggregation}(${tableColumn}) AS "${tableColumnName}","${groupByColumn}" "${groupByColumnName}", "BUCODE" "BUSINESS" FROM dbo."${table}" WHERE "VNAME" LIKE '%%' 
-        AND "MONTH" = '${month}' AND "YEAR" = '${year}' ${filterString} GROUP BY "${groupByColumn}", "BUCODE" ORDER BY ${aggregation}(${tableColumn}) DESC`
-
-            console.log(q1)
-            //var result = await pool.query(q1)
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-
-
-                var q2 = `SELECT TOP 5 ${aggregation}(${tableColumn}) AS "${tableColumnName}","${groupByColumn}" "${groupByColumnName}", "BUCODE" "BUSINESS"  FROM dbo."${table}" WHERE "VNAME" LIKE '%%' 
-                AND "MONTH" = '${lmonth}' AND "YEAR" = '${lyear}' GROUP BY "${groupByColumn}","BUCODE"  ORDER BY ${aggregation}(${tableColumn}) DESC`
-        console.log(q2)
-                //var result2 = await pool.query(q2)
-                request.query(q2, function (err, result2) {
-                    if (err) {
-                        console.log(err)
-                        throw err
-                    }
-
-                    var q3 = `SELECT DISTINCT "SINAME" FROM dbo."OL_INCIDENTS" WHERE (MONTH = '${month}' OR MONTH = '${lmonth}') AND (YEAR = '${year}' OR YEAR = '${lyear}')`
-
-
-                    // var result3 = await pool.query(q3)
-                    request.query(q3, function (err, result3) {
-                        if (err) {
-                            console.log(err)
-                            throw err
-                        }
-
-                        res.json({ result: result.recordset, result2: result2.recordset, sites: result3.recordset,widget:widgetResult.recordset})
-                    })
-                })
-            })
-            })
-        } catch (error) {
-            res.status(500).json({ error: 'Internal server error' })
-            console.log("Catch error found !", error, q1, q2, q3);
+        if (month == '1') {
+            lmonth = '12';
+            lyear = (Number(year) - 1).toString();
+        } else {
+            lmonth = (Number(month) - 1).toString();
+            lyear = year;
         }
-    })
-})
 
-router.post('/getAvgMaxMinRangeWidgetAPI', function (req, res) {
-    console.log("----DISPLAY getAvgMaxMinRangeWidgetAPI API----\n")
+        const request = pool.request();
+        request.input('userWidgetId', sql.Int, userWidgetId);
+        const widgetResult = await request.query(`SELECT do.*,dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = @userWidgetId`);
+        const objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON);
+        const { tableColumns: tableColumn, tableColumnsNames: tableColumnName, table, groupByColumn, groupByColumnName, aggregation } = objectOptionsJson;
 
-    var month = req.body.month.toString()
-    var year = req.body.year.toString()
-    var userWidgetId = req.body.userWidgetId;
-    var filterString = req.body.filterString;
-    var lmonth;
-    var lyear;
+        request.input('month', sql.NVarChar, month);
+        request.input('year', sql.NVarChar, year);
+        request.input('lmonth', sql.NVarChar, lmonth);
+        request.input('lyear', sql.NVarChar, lyear);
 
-    if (month == '1') {
-        lmonth = '12'
-        lyear = (Number(year) - 1).toString()
+        const q1 = `SELECT TOP 5 ${aggregation}(${tableColumn}) AS "${tableColumnName}","${groupByColumn}" "${groupByColumnName}", "BUCODE" "BUSINESS" FROM dbo."${table}" WHERE "VNAME" LIKE '%%' AND "MONTH" = @month AND "YEAR" = @year ${filterString} GROUP BY "${groupByColumn}", "BUCODE" ORDER BY ${aggregation}(${tableColumn}) DESC`;
+        const result = await request.query(q1);
+
+        const q2 = `SELECT TOP 5 ${aggregation}(${tableColumn}) AS "${tableColumnName}","${groupByColumn}" "${groupByColumnName}", "BUCODE" "BUSINESS" FROM dbo."${table}" WHERE "VNAME" LIKE '%%' AND "MONTH" = @lmonth AND "YEAR" = @lyear GROUP BY "${groupByColumn}","BUCODE" ORDER BY ${aggregation}(${tableColumn}) DESC`;
+        const result2 = await request.query(q2);
+
+        const q3 = `SELECT DISTINCT "SINAME" FROM dbo."OL_INCIDENTS" WHERE (MONTH = @month OR MONTH = @lmonth) AND (YEAR = @year OR YEAR = @lyear)`;
+        const result3 = await request.query(q3);
+
+        res.json({ result: result.recordset, result2: result2.recordset, sites: result3.recordset, widget: widgetResult.recordset });
+
+    } catch (error) {
+        console.error("Catch error found !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    else {
-        lmonth = (Number(month) - 1).toString()
-        lyear = year
+});
+
+router.post('/getAvgMaxMinRangeWidgetAPI', async (req, res) => {
+    console.log("----DISPLAY getAvgMaxMinRangeWidgetAPI API----\n");
+    try {
+        let { month, year, userWidgetId, filterString } = req.body;
+        month = month.toString();
+        year = year.toString();
+
+        const request = pool.request();
+        request.input('userWidgetId', sql.Int, userWidgetId);
+        const widgetResult = await request.query(`SELECT do.*,dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = @userWidgetId`);
+        const objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON);
+        const { tableColumns: tableColumn, tableColumnsNames: tableColumnName, table, groupByColumn, groupByColumnName, aggregation } = objectOptionsJson;
+
+        request.input('month', sql.NVarChar, month);
+        request.input('year', sql.NVarChar, year);
+
+        const q1 = `SELECT ${aggregation}(${tableColumn}) "${tableColumnName}", ${groupByColumn} "${groupByColumnName}" FROM dbo.${table} WHERE '1' = '1' AND "MONTH" = @month AND "YEAR" = @year ${filterString} GROUP BY ${groupByColumn} ORDER BY ${groupByColumn} ASC`;
+        const result = await request.query(q1);
+        res.json({ result: result.recordset, widget: widgetResult.recordset });
+
+    } catch (error) {
+        console.error("Catch error found !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    console.log(month, year, lmonth, lyear)
-
-    sql.connect(config, function (err) {
-        try {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-
-            var widgetQuery = `SELECT do.*,dw.WIDGET_HTML  FROM DASHBOARD_OBJECTS do
-            JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = ${userWidgetId}`
-            console.log(widgetQuery);
-            request.query(widgetQuery, function(err,widgetResult){
-                var objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON)
-                var tableColumn = objectOptionsJson["tableColumns"]
-                var tableColumnName = objectOptionsJson["tableColumnsNames"]
-                var table = objectOptionsJson["table"]
-                var groupByColumn = objectOptionsJson["groupByColumn"]
-                var groupByColumnName = objectOptionsJson["groupByColumnName"]
-                var aggregation = objectOptionsJson["aggregation"]
+});
 
 
-                var q1 = `SELECT ${aggregation}(${tableColumn}) "${tableColumnName}", ${groupByColumn} "${groupByColumnName}" FROM dbo.${table} WHERE '1' = '1' 
-                AND "MONTH" = '${month}' AND "YEAR" = '${year}' ${filterString}
-                GROUP BY ${groupByColumn} ORDER BY ${groupByColumn} ASC`
-
-            console.log(q1)
-            //var result = await pool.query(q1)
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json({ result: result.recordset,widget:widgetResult.recordset})
-            })
-            })
-        } catch (error) {
-            res.status(500).json({ error: 'Internal server error' })
-            console.log("Catch error found !", error, q1, q2, q3);
-        }
-    })
-})
-
-
-router.post('/getIncidentDetails', function (req, res) {
+router.post('/getIncidentDetails', async (req, res) => {
     console.log("----DISPLAY getIncidentDetails API----\n");
+    try {
+        let { month, year, userWidgetId, filterString } = req.body;
+        month = month.toString();
+        year = year.toString();
 
-    var month = req.body.month.toString();
-    var year = req.body.year.toString();
-    var userWidgetId = req.body.userWidgetId;
-    var filterString = req.body.filterString;
-    console.log(userWidgetId);
-    console.log(filterString , "gyuu");
-
-    // Check and modify the filterString if it contains DATE = 'some_date'
-    if (filterString.includes("DATE =")) {
-        filterString = filterString.replace("DATE =", "OCCUREDDATE =");
-        console.log("Updated filterString:", filterString);
-    }
-
-    var lmonth;
-    var lyear;
-
-    if (month == '1') {
-        lmonth = '12';
-        lyear = (Number(year) - 1).toString();
-    } else {
-        lmonth = (Number(month) - 1).toString();
-        lyear = year;
-    }
-
-    console.log(month, year, lmonth, lyear);
-
-    sql.connect(config, function (err) {
-        try {
-            if (err) {
-                console.log(err);
-                throw err;
-            }
-
-            var request = new sql.Request();
-
-            var widgetQuery = `SELECT do.*, dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do
-                JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = ${userWidgetId}`;
-            console.log(widgetQuery);
-            request.query(widgetQuery, function (err, widgetResult) {
-                if (err) {
-                    console.log(err);
-                    throw err;
-                }
-
-                var objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON);
-                var tableColumn = objectOptionsJson["tableColumns"];
-                var tableColumnName = objectOptionsJson["tableColumnsNames"];
-                var table = objectOptionsJson["table"];
-                var groupByColumn = objectOptionsJson["groupByColumn"];
-                var groupByColumnName = objectOptionsJson["groupByColumnName"];
-                var aggregation = objectOptionsJson["aggregation"];
-
-                // Construct the query to get data for the current month
-                var q1 = `SELECT "INCIDENTID", 
-                "OCCUREDDATE",
-
-                                "STATUS", 
-                                "INCIDENTTITLE", 
-                                "INCIDENTDETAILS" AS "INCIDENTDETAILS",
-                                "BUNAME",
-								"SINAME"
-                        FROM dbo."OL_INCIDENTS"
-                        WHERE "VNAME" LIKE '%%'
-                          AND "MONTH" = '${month}' 
-                          AND "YEAR" = '${year}'
-                          ${filterString}
-                        ORDER BY "INCIDENTID" DESC`;
-
-                console.log(q1);
-                request.query(q1, function (err, result) {
-                    if (err) {
-                        console.log(err);
-                        throw err;
-                    }
-
-                    // Query for distinct sites (SINAME) for the current month only
-                    var q3 = `SELECT DISTINCT "SINAME" 
-                              FROM dbo."OL_INCIDENTS" 
-                              WHERE "MONTH" = '${month}' 
-                                AND "YEAR" = '${year}'`;
-
-                    request.query(q3, function (err, result3) {
-                        if (err) {
-                            console.log(err);
-                            throw err;
-                        }
-
-                        // Send the final response with results
-                        res.json({
-                            result: result.recordset, 
-                            sites: result3.recordset, 
-                            widget: widgetResult.recordset
-                        });
-                    });
-                });
-            });
-        } catch (error) {
-            res.status(500).json({ error: 'Internal server error' });
-            console.log("Catch error found!", error);
+        if (filterString.includes("DATE =")) {
+            filterString = filterString.replace("DATE =", "OCCUREDDATE =");
         }
-    });
+
+        const request = pool.request();
+        request.input('userWidgetId', sql.Int, userWidgetId);
+        const widgetResult = await request.query(`SELECT do.*, dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = @userWidgetId`);
+
+        request.input('month', sql.NVarChar, month);
+        request.input('year', sql.NVarChar, year);
+
+        const q1 = `SELECT "INCIDENTID", "OCCUREDDATE", "STATUS", "INCIDENTTITLE", "INCIDENTDETAILS" AS "INCIDENTDETAILS", "BUNAME", "SINAME" FROM dbo."OL_INCIDENTS" WHERE "VNAME" LIKE '%%' AND "MONTH" = @month AND "YEAR" = @year ${filterString} ORDER BY "INCIDENTID" DESC`;
+        const result = await request.query(q1);
+
+        const q3 = `SELECT DISTINCT "SINAME" FROM dbo."OL_INCIDENTS" WHERE "MONTH" = @month AND "YEAR" = @year`;
+        const result3 = await request.query(q3);
+
+        res.json({ result: result.recordset, sites: result3.recordset, widget: widgetResult.recordset });
+
+    } catch (error) {
+        console.error("Catch error found!", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-router.post('/getdailyDSRStatus', function (req, res) {
+router.post('/getdailyDSRStatus', async (req, res) => {
     console.log("----DISPLAY getdailyDSRStatus API----\n");
-    var month = req.body.month.toString();
-    var year = req.body.year.toString();
-    var userWidgetId = req.body.userWidgetId;
-    var filterString = req.body.filterString;
-    console.log(userWidgetId);
-    console.log(filterString, "gyuu");
-    // Check and modify the filterString if it contains DATE = 'some_date'
-    if (filterString.includes("DATE =")) {
-        filterString = filterString.replace("DATE =", "DATE =");
-        console.log("Updated filterString:", filterString);
-    }
-    var lmonth;
-    var lyear;
-    if (month == '1') {
-        lmonth = '12';
-        lyear = (Number(year) - 1).toString();
-    } else {
-        lmonth = (Number(month) - 1).toString();
-        lyear = year;
-    }
-    console.log(month, year, lmonth, lyear);
-    sql.connect(config, function (err) {
-        if (err) {
-            console.log(err);
-            res.status(500).json({ error: 'Database connection failed' });
-            return;
+    try {
+        let { filterString, userWidgetId } = req.body;
+
+        if (filterString.includes("DATE =")) {
+            filterString = filterString.replace("DATE =", "DATE =");
         }
- 
-        var request = new sql.Request();
-        var widgetQuery = `SELECT do.*, dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do
-            JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = ${userWidgetId}`;
-        console.log(widgetQuery);
- 
-        request.query(widgetQuery, function (err, widgetResult) {
-            if (err) {
-                console.log(err);
-                res.status(500).json({ error: 'Failed to fetch widget data' });
-                return;
-            }
- 
-            var objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON);
-            var tableColumn = objectOptionsJson["tableColumns"];
-            var tableColumnName = objectOptionsJson["tableColumnsNames"];
-            var table = objectOptionsJson["table"];
-            var groupByColumn = objectOptionsJson["groupByColumn"];
-            var groupByColumnName = objectOptionsJson["groupByColumnName"];
-            var aggregation = objectOptionsJson["aggregation"];
- 
-            // Construct the query to get data for the current month
-            var q1 = `SELECT
-                BUNAME,
-                DATE,
-                CASE
-                    WHEN STATUS = 1 THEN 'PENDING'
-                    WHEN STATUS = 2 THEN 'COMPLETE'
-                    ELSE 'INPROGRESS'
-                END AS STATUS,
-                COUNT(*) AS STATUS_COUNT
-            FROM
-                (
-                    SELECT
-                        BUNAME,
-                        DATE,
-                        CASE
-                            WHEN PENDING = 1 THEN 1  -- PENDING
-                            WHEN COMPLETE = 1 THEN 2  -- COMPLETE
-                            ELSE 0  -- INPROGRESS
-                        END AS STATUS
-                    FROM
-                        dbo.OL_DASHBOARD_DAILY_DSRSTATUS
-                    WHERE
-                    1=1 
-                        ${filterString}
-                ) AS STATUS_TABLE
-            GROUP BY
-                BUNAME, DATE, STATUS
-            ORDER BY
-                BUNAME ASC, DATE, STATUS;
-            `;
- 
-            console.log(q1);
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err);
-                    res.status(500).json({ error: 'Failed to fetch DSR data' });
-                    return;
-                }
- 
-                // Send the final response with results
-                res.json({
-                    result: result.recordset,
-                    widget: widgetResult.recordset
-                });
-            });
-        });
-    });
+
+        const request = pool.request();
+        request.input('userWidgetId', sql.Int, userWidgetId);
+        const widgetResult = await request.query(`SELECT do.*, dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = @userWidgetId`);
+
+        const q1 = `SELECT BUNAME, DATE, CASE WHEN STATUS = 1 THEN 'PENDING' WHEN STATUS = 2 THEN 'COMPLETE' ELSE 'INPROGRESS' END AS STATUS, COUNT(*) AS STATUS_COUNT FROM (SELECT BUNAME, DATE, CASE WHEN PENDING = 1 THEN 1 WHEN COMPLETE = 1 THEN 2 ELSE 0 END AS STATUS FROM dbo.OL_DASHBOARD_DAILY_DSRSTATUS WHERE 1=1 ${filterString}) AS STATUS_TABLE GROUP BY BUNAME, DATE, STATUS ORDER BY BUNAME ASC, DATE, STATUS;`;
+        const result = await request.query(q1);
+        res.json({ result: result.recordset, widget: widgetResult.recordset });
+
+    } catch (error) {
+        console.error("Catch error found!", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 
 
 
 
-router.post('/getIncidentDataAPI',function (req,res){
-    console.log("----DISPLAY getIncidentDataAPI API----\n")
+router.post('/getIncidentDataAPI', async (req, res) => {
+    console.log("----DISPLAY getIncidentDataAPI API----\n");
+    try {
+        let { month, year, userWidgetId, filterString } = req.body;
+        const startDate = formatDate(new Date(year, parseInt(month) - 1, 1));
+        const endDate = formatDate(new Date(year, parseInt(month), 0));
+        filterString = filterString.replace(/ AND (\w+)/, " AND INCIDENTS.$1");
+        filterString += ` AND INCIDENTS.OCCURDATE BETWEEN '${startDate}' AND '${endDate}'`;
 
-    var month = parseInt(req.body.month.toString())
-    var year = parseInt(req.body.year.toString())
-    var userWidgetId = req.body.userWidgetId;
-    var filterString = req.body.filterString;
-    var startDate = formatDate(new Date(year, month - 1, 1));
-    var endDate = formatDate(new Date(year, month, 0));
-    filterString = filterString.replace(/ AND (\w+)/, " AND INCIDENTS.$1");
-    filterString +=` AND INCIDENTS.OCCURDATE BETWEEN '${startDate}' AND '${endDate}'`
-    sql.connect(config, function (err) {
-        try {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var widgetQuery = `SELECT do.*,dw.WIDGET_HTML  FROM DASHBOARD_OBJECTS do
-            JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = ${userWidgetId}`
-            console.log(widgetQuery);
-            request.query(widgetQuery, function(err,widgetResult){
-            var q1 = `SELECT "INCIDENTS"."INCIDENTID","INCIDENTS"."REPORTEDBY","INCIDENTTYPEMASTER"."INCIDENTTYPENAME","INCIDENTCATMASTER"."INCIDENTCATNAME",
-            "INCIDENTCATMASTER_ICON"."ICON","INCIDENTCATMASTER_ICON"."COLOR","INCIDENTS"."BUID" as "BUSINESSID", "BUSINESS"."BUNAME" as BUSINESSNAME,"INCIDENTS"."VID" as VERTICALID,
-             "VERTICAL"."VNAME" as "VERTICALNAME","INCIDENTS"."SIID" as "SITEID", "SITE"."SINAME" as "SITENAME", 
-             "INCIDENTS"."USERID","LOCATION"."LNAME" as "LOCATIONNAME","REPORTINGTYPEMASTER"."REPORTTYPENAME","STATUSMASTER"."STATUSNAME", 
-             "INCIDENTS"."INCIDENTTITLE", "INCIDENTS"."DESCRIPTION", "INCIDENTS"."OCCURDATE", "INCIDENTS"."OCCURTIME", "INCIDENTS"."REPORTEDDATE", 
-             "INCIDENTS"."REPORTEDTIME","INCIDENTS"."EMAILSTATUS","INCIDENTS"."SMSSTATUS", "INCIDENTS"."LASTUPDATEDATE", "INCIDENTS"."LASTUPDATEDTIME","ZONE"."ZNAME" as "ZONENAME","LOCATION"."LATITUDE",
-              "LOCATION"."LONGITUDE", "INCIDENTS"."SEVERITY", "INCIDENTS"."GEOJSON", "INCIDENTS"."GEOTYPE"
-            FROM dbo."INCIDENTS"
-          JOIN dbo."INCIDENTTYPEMASTER" ON dbo."INCIDENTTYPEMASTER"."INCIDENTTYPEID" = dbo."INCIDENTS"."INCIDENTTYPEID"
-          JOIN dbo."INCIDENTCATMASTER" ON dbo."INCIDENTCATMASTER"."INCIDENTCATID" = dbo."INCIDENTS"."INCIDENTCATID"
-          JOIN dbo."BUSINESS" ON dbo."BUSINESS"."BUID" = dbo."INCIDENTS"."BUID"
-          JOIN dbo."VERTICAL" ON dbo."VERTICAL"."VID" = dbo."INCIDENTS"."VID"	  
-          JOIN dbo."SITE" ON dbo."SITE"."SIID" = dbo."INCIDENTS"."SIID"
-          JOIN dbo."LOCATION" ON dbo."LOCATION"."LID" = dbo."INCIDENTS"."LID"
-          JOIN dbo."REPORTINGTYPEMASTER" ON dbo."REPORTINGTYPEMASTER"."REPORTTYPEID" = dbo."INCIDENTS"."REPORTTYPEID"
-          JOIN dbo."STATUSMASTER" ON dbo."STATUSMASTER"."STATUSID" = dbo."INCIDENTS"."STATUSID" 
-          JOIN dbo."INCIDENTCATMASTER_ICON" ON "INCIDENTCATMASTER_ICON"."INCIDENTCATID" = dbo."INCIDENTS"."INCIDENTCATID"
-          JOIN dbo."ZONE" ON dbo."ZONE"."ZID" = dbo."INCIDENTS"."ZID" WHERE '1' = '1' `+
-          filterString +
-          ` ORDER BY dbo."INCIDENTS"."REPORTEDDATE" DESC;`
-          console.log(q1);
-          request.query(q1, function(err,result1){
-            res.json({ result: result1.recordset,widget:widgetResult.recordset})
-          })
-        })
-        }catch(error){
-            res.status(500).json({ error: 'Internal server error' })
-            console.log("Catch error found !", error, q1);
-        }
-    })
-})
+        const request = pool.request();
+        request.input('userWidgetId', sql.Int, userWidgetId);
+        const widgetResult = await request.query(`SELECT do.*,dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = @userWidgetId`);
+
+        const q1 = `SELECT "INCIDENTS"."INCIDENTID","INCIDENTS"."REPORTEDBY","INCIDENTTYPEMASTER"."INCIDENTTYPENAME","INCIDENTCATMASTER"."INCIDENTCATNAME", "INCIDENTCATMASTER_ICON"."ICON","INCIDENTCATMASTER_ICON"."COLOR","INCIDENTS"."BUID" as "BUSINESSID", "BUSINESS"."BUNAME" as BUSINESSNAME,"INCIDENTS"."VID" as VERTICALID, "VERTICAL"."VNAME" as "VERTICALNAME","INCIDENTS"."SIID" as "SITEID", "SITE"."SINAME" as "SITENAME", "INCIDENTS"."USERID","LOCATION"."LNAME" as "LOCATIONNAME","REPORTINGTYPEMASTER"."REPORTTYPENAME","STATUSMASTER"."STATUSNAME", "INCIDENTS"."INCIDENTTITLE", "INCIDENTS"."DESCRIPTION", "INCIDENTS"."OCCURDATE", "INCIDENTS"."OCCURTIME", "INCIDENTS"."REPORTEDDATE", "INCIDENTS"."REPORTEDTIME","INCIDENTS"."EMAILSTATUS","INCIDENTS"."SMSSTATUS", "INCIDENTS"."LASTUPDATEDATE", "INCIDENTS"."LASTUPDATEDTIME","ZONE"."ZNAME" as "ZONENAME","LOCATION"."LATITUDE", "LOCATION"."LONGITUDE", "INCIDENTS"."SEVERITY", "INCIDENTS"."GEOJSON", "INCIDENTS"."GEOTYPE" FROM dbo."INCIDENTS" JOIN dbo."INCIDENTTYPEMASTER" ON dbo."INCIDENTTYPEMASTER"."INCIDENTTYPEID" = dbo."INCIDENTS"."INCIDENTTYPEID" JOIN dbo."INCIDENTCATMASTER" ON dbo."INCIDENTCATMASTER"."INCIDENTCATID" = dbo."INCIDENTS"."INCIDENTCATID" JOIN dbo."BUSINESS" ON dbo."BUSINESS"."BUID" = dbo."INCIDENTS"."BUID" JOIN dbo."VERTICAL" ON dbo."VERTICAL"."VID" = dbo."INCIDENTS"."VID" JOIN dbo."SITE" ON dbo."SITE"."SIID" = dbo."INCIDENTS"."SIID" JOIN dbo."LOCATION" ON dbo."LOCATION"."LID" = dbo."INCIDENTS"."LID" JOIN dbo."REPORTINGTYPEMASTER" ON dbo."REPORTINGTYPEMASTER"."REPORTTYPEID" = dbo."INCIDENTS"."REPORTTYPEID" JOIN dbo."STATUSMASTER" ON dbo."STATUSMASTER"."STATUSID" = dbo."INCIDENTS"."STATUSID" JOIN dbo."INCIDENTCATMASTER_ICON" ON "INCIDENTCATMASTER_ICON"."INCIDENTCATID" = dbo."INCIDENTS"."INCIDENTCATID" JOIN dbo."ZONE" ON dbo."ZONE"."ZID" = dbo."INCIDENTS"."ZID" WHERE '1' = '1' ${filterString} ORDER BY dbo."INCIDENTS"."REPORTEDDATE" DESC;`;
+        const result1 = await request.query(q1);
+        res.json({ result: result1.recordset, widget: widgetResult.recordset });
+
+    } catch (error) {
+        console.error("Catch error found !", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 function formatDate(date) {
     var year = date.getFullYear();
@@ -1993,253 +1023,131 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-router.post('/getPercentBarsWidgetAPI', function (req, res) {
-    console.log("----DISPLAY getPercentBarsWidgetAPI API----\n")
-
-    var month = req.body.month.toString()
-    var year = req.body.year.toString()
-    var userWidgetId = req.body.userWidgetId;
-    var filterString = req.body.filterString;
-    var lmonth;
-    var lyear;
-
-    if (month == '1') {
-        lmonth = '12'
-        lyear = (Number(year) - 1).toString()
-    }
-    else {
-        lmonth = (Number(month) - 1).toString()
-        lyear = year
-    }
-    console.log(month, year, lmonth, lyear)
-
-    sql.connect(config, function (err) {
-        try {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-
-            var widgetQuery = `SELECT do.*,dw.WIDGET_HTML  FROM DASHBOARD_OBJECTS do
-            JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = ${userWidgetId}`
-            console.log(widgetQuery);
-            request.query(widgetQuery, function(err,widgetResult){
-                var objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON)
-                var tableColumn = objectOptionsJson["tableColumns"]
-                var tableColumnName = objectOptionsJson["tableColumnsNames"]
-                var table = objectOptionsJson["table"]
-                var groupByColumn = objectOptionsJson["groupByColumn"]
-                var groupByColumnName = objectOptionsJson["groupByColumnName"]
-                var aggregation = objectOptionsJson["aggregation"]
-
-
-                var q1 = `SELECT ${aggregation}(${tableColumn[0]}) "${tableColumnName[0]}", ${groupByColumn} "${groupByColumnName}" FROM dbo.${table} WHERE '1' = '1' 
-                AND "MONTH" = '${month}' AND "YEAR" = '${year}' ${filterString}
-                GROUP BY ${groupByColumn} ORDER BY ${groupByColumn} ASC`
-
-                var q2 = `SELECT ${aggregation}(${tableColumn[1]}) "${tableColumnName[1]}", ${groupByColumn} "${groupByColumnName}" FROM dbo.${table} WHERE '1' = '1' 
-                AND "MONTH" = '${month}' AND "YEAR" = '${year}' ${filterString}
-                GROUP BY ${groupByColumn} ORDER BY ${groupByColumn} ASC`
-
-            console.log(q1)
-            //var result = await pool.query(q1)
-            request.query(q1, function (err, result) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                request.query(q2, function(err, result2){
-                    if(err){
-                        console.log(err)
-                        throw err
-                    }
-                    res.json({ result: result.recordset,result2:result2.recordset,widget:widgetResult.recordset})
-                })
-                
-
-            })
-            })
-        } catch (error) {
-            res.status(500).json({ error: 'Internal server error' })
-            console.log("Catch error found !", error, q1, q2, q3);
-        }
-    })
-})
-
-
-
-
-router.post("/getChart3Data", function (req, res) {
-    console.log("----DISPLAY getChart3Data API----\n");
-    var month = req.body.month
-    var year = req.body.year
+router.post('/getPercentBarsWidgetAPI', async (req, res) => {
+    console.log("----DISPLAY getPercentBarsWidgetAPI API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, OCCUREDDATE  FROM dbo.OL_INCIDENTS WHERE [MONTH] = ${month} AND [YEAR] = '${year}' GROUP BY OCCUREDDATE ORDER BY OCCUREDDATE`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        let { month, year, userWidgetId, filterString } = req.body;
+        month = month.toString();
+        year = year.toString();
+
+        const request = pool.request();
+        request.input('userWidgetId', sql.Int, userWidgetId);
+        const widgetResult = await request.query(`SELECT do.*,dw.WIDGET_HTML FROM DASHBOARD_OBJECTS do JOIN DASHBOARD_WIDGET_MASTER dw ON dw.WIDGET_ID = do.OBJECT_ID WHERE do.D_OBJECT_ID = @userWidgetId`);
+        const objectOptionsJson = JSON.parse(widgetResult.recordset[0].OBJECT_OPTIONS_JSON);
+        const { tableColumns, tableColumnsNames, table, groupByColumn, groupByColumnName, aggregation } = objectOptionsJson;
+
+        request.input('month', sql.NVarChar, month);
+        request.input('year', sql.NVarChar, year);
+
+        const q1 = `SELECT ${aggregation}(${tableColumns[0]}) "${tableColumnsNames[0]}", ${groupByColumn} "${groupByColumnName}" FROM dbo.${table} WHERE '1' = '1' AND "MONTH" = @month AND "YEAR" = @year ${filterString} GROUP BY ${groupByColumn} ORDER BY ${groupByColumn} ASC`;
+        const result = await request.query(q1);
+
+        const q2 = `SELECT ${aggregation}(${tableColumns[1]}) "${tableColumnsNames[1]}", ${groupByColumn} "${groupByColumnName}" FROM dbo.${table} WHERE '1' = '1' AND "MONTH" = @month AND "YEAR" = @year ${filterString} GROUP BY ${groupByColumn} ORDER BY ${groupByColumn} ASC`;
+        const result2 = await request.query(q2);
+
+        res.json({ result: result.recordset, result2: result2.recordset, widget: widgetResult.recordset });
+
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChart3Data", err);
+        console.error("Catch error found !", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
 
-router.post("/getChart1Data", function (req, res) {
+
+
+router.post("/getChart3Data", async (req, res) => {
     console.log("----DISPLAY getChart3Data API----\n");
-    var month = req.body.month
-    var year = req.body.year
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, BUNAME FROM dbo.OL_INCIDENTS WHERE [MONTH] = ${month} AND [YEAR] = '${year}' GROUP BY BUNAME ORDER BY BUNAME`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { month, year } = req.body;
+        const request = pool.request();
+        request.input('month', sql.Int, month);
+        request.input('year', sql.NVarChar, year);
+        const result1 = await request.query(`SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, OCCUREDDATE FROM dbo.OL_INCIDENTS WHERE [MONTH] = @month AND [YEAR] = @year GROUP BY OCCUREDDATE ORDER BY OCCUREDDATE`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChart3Data", err);
+        console.error("catch error found getChart3Data", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getChart4Data", function (req, res) {
-    console.log("----DISPLAY getChart3Data API----\n");
-    var month = req.body.month
-    var year = req.body.year
+router.post("/getChart1Data", async (req, res) => {
+    console.log("----DISPLAY getChart1Data API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT AVG(AVAILABLE) AVAILABLE, AVG(WORKING) WORKING  FROM dbo.OL_DSRSECAUTO od WHERE [MONTH] = ${month} AND [YEAR] = '${year}'`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { month, year } = req.body;
+        const request = pool.request();
+        request.input('month', sql.Int, month);
+        request.input('year', sql.NVarChar, year);
+        const result1 = await request.query(`SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, BUNAME FROM dbo.OL_INCIDENTS WHERE [MONTH] = @month AND [YEAR] = @year GROUP BY BUNAME ORDER BY BUNAME`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChart3Data", err);
+        console.error("catch error found getChart1Data", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getChart2Data", function (req, res) {
-    console.log("----DISPLAY getChart3Data API----\n");
-    var month = req.body.month
-    var year = req.body.year
+router.post("/getChart4Data", async (req, res) => {
+    console.log("----DISPLAY getChart4Data API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, INCIDENTTYPENAME FROM dbo.OL_INCIDENTS WHERE [MONTH] = ${month} AND [YEAR] = '${year}' GROUP BY INCIDENTTYPENAME`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { month, year } = req.body;
+        const request = pool.request();
+        request.input('month', sql.Int, month);
+        request.input('year', sql.NVarChar, year);
+        const result1 = await request.query(`SELECT AVG(AVAILABLE) AVAILABLE, AVG(WORKING) WORKING FROM dbo.OL_DSRSECAUTO od WHERE [MONTH] = @month AND [YEAR] = @year`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChart3Data", err);
+        console.error("catch error found getChart4Data", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
-
-router.post("/getChart5Data", function (req, res) {
-    console.log("----DISPLAY getChart3Data API----\n");
-    var month = req.body.month
-    var year = req.body.year
+router.post("/getChart2Data", async (req, res) => {
+    console.log("----DISPLAY getChart2Data API----\n");
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, INCIDENTCATNAME FROM dbo.OL_INCIDENTS WHERE [MONTH] = ${month} AND [YEAR] = '${year}' GROUP BY INCIDENTCATNAME`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { month, year } = req.body;
+        const request = pool.request();
+        request.input('month', sql.Int, month);
+        request.input('year', sql.NVarChar, year);
+        const result1 = await request.query(`SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, INCIDENTTYPENAME FROM dbo.OL_INCIDENTS WHERE [MONTH] = @month AND [YEAR] = @year GROUP BY INCIDENTTYPENAME`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getChart3Data", err);
+        console.error("catch error found getChart2Data", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
+});
 
-})
+router.post("/getChart5Data", async (req, res) => {
+    console.log("----DISPLAY getChart5Data API----\n");
+    try {
+        const { month, year } = req.body;
+        const request = pool.request();
+        request.input('month', sql.Int, month);
+        request.input('year', sql.NVarChar, year);
+        const result1 = await request.query(`SELECT COUNT(INCIDENTCOUNT) INCIDENTCOUNT, INCIDENTCATNAME FROM dbo.OL_INCIDENTS WHERE [MONTH] = @month AND [YEAR] = @year GROUP BY INCIDENTCATNAME`);
+        res.json(result1.recordset);
+    } catch (error) {
+        console.error("catch error found getChart5Data", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
-router.post("/getRadialChartData", function (req, res) {
+router.post("/getRadialChartData", async (req, res) => {
     console.log("----DISPLAY getRadialChartData API----\n");
-    var month = req.body.month
-    var year = req.body.year
-    var upperColumn = req.body.upperColumn
-    var lowerColumn = req.body.lowerColumn
-    var table = req.body.table
     try {
-        sql.connect(config, function (err) {
-            if (err) {
-                console.log(err)
-                throw err
-            }
-            var request = new sql.Request()
-            var q1 = `SELECT SUM(${upperColumn}) ${upperColumn}, SUM(${lowerColumn}) ${lowerColumn} FROM dbo.${table} WHERE [MONTH] = ${month} AND [YEAR] = '${year}'`;
-            console.log(q1);
-            request.query(q1, function (err, result1) {
-                if (err) {
-                    console.log(err)
-                    throw err
-                }
-                res.json(result1.recordset)
-            })
-        })
+        const { month, year, upperColumn, lowerColumn, table } = req.body;
+        const request = pool.request();
+        request.input('month', sql.Int, month);
+        request.input('year', sql.NVarChar, year);
+        request.input('upperColumn', sql.NVarChar, upperColumn);
+        request.input('lowerColumn', sql.NVarChar, lowerColumn);
+        request.input('table', sql.NVarChar, table);
+        const result1 = await request.query(`SELECT SUM(${upperColumn}) ${upperColumn}, SUM(${lowerColumn}) ${lowerColumn} FROM dbo.${table} WHERE [MONTH] = @month AND [YEAR] = @year`);
+        res.json(result1.recordset);
     } catch (error) {
-        res.status(500).json({ error: 'Internal server error' })
-        console.log("catch error found getRadialChartData", err);
+        console.error("catch error found getRadialChartData", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-})
+});
 
 
 
