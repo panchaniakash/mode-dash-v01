@@ -1,3 +1,13 @@
+$(document).ajaxStart(function() {
+    // Show the overlay when any AJAX request starts
+    $('#loading-overlay').css('display', 'flex');
+});
+
+$(document).ajaxStop(function() {
+    // Hide the overlay when all AJAX requests have completed
+    $('#loading-overlay').hide();
+});
+
 var dashboardName = ''
 
 var date = new Date();
